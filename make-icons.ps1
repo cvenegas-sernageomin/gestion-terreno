@@ -8,7 +8,7 @@ function New-Icon([int]$size, [string]$path) {
   $bmp = New-Object System.Drawing.Bitmap($size, $size)
   $g = [System.Drawing.Graphics]::FromImage($bmp)
   $g.SmoothingMode = [System.Drawing.Drawing2D.SmoothingMode]::AntiAlias
-  $g.Clear([System.Drawing.Color]::FromArgb(198, 107, 33))   # naranja/flota
+  $g.Clear([System.Drawing.Color]::FromArgb(11, 109, 182))   # azul institucional
 
   $white = New-Object System.Drawing.SolidBrush ([System.Drawing.Color]::White)
   # caja (bed) + cabina de la camioneta

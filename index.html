@@ -24,22 +24,23 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>Gestión de Terreno</title>
-<meta name="theme-color" content="#c66b21">
+<meta name="theme-color" content="#0b6db6">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
 <style>
-  :root{ --nar:#c66b21; --nar-osc:#96501a; --gris:#f3f5f7; --borde:#d7dde3; --ok:#2e7d46; --warn:#b5651d; --err:#c0392b; }
+  :root{ --nar:#0b6db6; --nar-osc:#084f87; --gris:#f3f5f7; --borde:#d7dde3; --ok:#2e7d46; --warn:#ee4042; --err:#c62828; }
   *{box-sizing:border-box;}
   body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--gris);color:#222;}
-  header{background:var(--nar);color:#fff;padding:14px 18px;display:flex;align-items:center;gap:10px;}
+  header{background:var(--nar);border-bottom:4px solid #ee4042;color:#fff;padding:14px 18px;display:flex;align-items:center;gap:10px;}
   header h1{font-size:17px;margin:0;font-weight:600;}
   header .ver{font-size:11px;opacity:.75;margin-left:auto;}
   nav.tabs{display:flex;background:#fff;border-bottom:1px solid var(--borde);max-width:680px;margin:0 auto;}
   nav.tabs .tab-btn{flex:1;background:none;border:none;padding:12px 8px;font-size:13px;font-weight:600;
     color:#888;cursor:pointer;border-bottom:3px solid transparent;}
   nav.tabs .tab-btn.activo{color:var(--nar);border-bottom-color:var(--nar);}
-  nav.tabs.top{max-width:none;background:#fff;border-bottom:2px solid var(--nar);}
+  nav.tabs.top{max-width:none;background:#fff;border-bottom:1px solid var(--borde);}
+  nav.tabs.top .tab-btn.activo{border-bottom-color:#ee4042;}
   nav.tabs.top .tab-btn{font-size:15px;}
   #panelPost iframe{display:block;width:100%;height:calc(100vh - 110px);min-height:500px;border:0;background:#fff;}
   main{max-width:680px;margin:0 auto;padding:16px;}
@@ -71,7 +72,7 @@
   .fila-botones{display:flex;gap:8px;flex-wrap:wrap;}
   .error{color:var(--err);font-size:13px;margin-top:8px;min-height:16px;}
   .aviso{font-size:13px;margin-top:8px;color:#555;}
-  .aviso.warn{color:var(--warn);background:#fbe9d9;border-radius:6px;padding:8px;}
+  .aviso.warn{color:var(--warn);background:#fdeaea;border-radius:6px;padding:8px;}
   .reserva-item{border-bottom:1px solid var(--borde);padding:6px 0;font-size:13px;}
   .reserva-item:last-child{border-bottom:none;}
   .reserva-item .muted{color:#888;margin-left:6px;}
@@ -85,7 +86,7 @@
 
 <header>
   <h1>🧭 Gestión de Terreno</h1>
-  <span class="ver">v3</span>
+  <span class="ver">v4</span>
 </header>
 
 <nav class="tabs top">
