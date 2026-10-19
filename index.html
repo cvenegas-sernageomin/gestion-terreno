@@ -86,7 +86,7 @@
 
 <header>
   <h1>🧭 Gestión de Terreno</h1>
-  <span class="ver">v4</span>
+  <span class="ver">v5</span>
 </header>
 
 <nav class="tabs top">
@@ -275,8 +275,10 @@
   <div class="card">
     <h2>2. Participantes</h2>
     <div id="filasParticipantes"></div>
+    <p class="nota" style="margin:8px 0 0;">Copiar traslado, fechas, vuelos, origen y exámenes del participante 1 (no copia nombre, RUT ni contactos).</p>
     <div class="fila-botones" style="margin-top:10px;">
       <button class="btn secundario" id="btnAgregarParticipante" type="button">+ Agregar participante</button>
+      <button class="btn secundario" id="btnCopiarATodos" type="button">📋 Copiar datos de viaje del 1 a todos</button>
     </div>
   </div>
 
@@ -1031,6 +1033,7 @@ function agregarParticipante() {
   div.innerHTML = `
     <span class="num">Participante ${idx}</span>
     ${idx > 1 ? '<button type="button" class="quitar">✕ quitar</button>' : ''}
+    ${idx > 1 ? '<div style="margin-top:6px;"><button type="button" class="btn secundario copiar1" style="padding:6px 10px;font-size:12px;">📋 Completar con datos del participante 1</button></div>' : ''}
     <label>Cargar desde mi nómina privada (opcional)</label>
     <select class="pNominaSel"><option value="">— elegir —</option></select>
     <label>Nombre completo</label>
@@ -1076,9 +1079,25 @@ function agregarParticipante() {
     el.addEventListener('input', validarFicha);
     el.addEventListener('change', validarFicha);
   });
+  const btnCopiar = div.querySelector('.copiar1');
+  if (btnCopiar) btnCopiar.addEventListener('click', () => { copiarDatosViajeDesde1(div); });
   const btnQuitar = div.querySelector('.quitar');
   if (btnQuitar) btnQuitar.addEventListener('click', () => { div.remove(); renumerarParticipantes(); validarFicha(); });
   document.getElementById('btnAgregarParticipante').disabled = numParticipantes >= MAX_PARTICIPANTES;
+}
+// Copia del participante 1 los datos de viaje compartidos (no nombre, RUT ni contactos personales).
+const CAMPOS_COPIA_VALOR = ['.pOrigen', '.pTraslado', '.pFSalida', '.pFRegreso', '.pVueloIda', '.pVueloRegreso'];
+const CAMPOS_COPIA_CHECK = ['.pExAltFis', '.pExAltGeo', '.pExFrio', '.pExCalor', '.pExConfin', '.pExCond'];
+function copiarDatosViajeDesde1(destino) {
+  const filas = contParticipantes.querySelectorAll('.fila-participante');
+  const origen = filas[0];
+  if (!origen) return;
+  const destinos = destino ? [destino] : Array.from(filas).slice(1);
+  destinos.forEach(d => {
+    CAMPOS_COPIA_VALOR.forEach(c => { d.querySelector(c).value = origen.querySelector(c).value; });
+    CAMPOS_COPIA_CHECK.forEach(c => { d.querySelector(c).checked = origen.querySelector(c).checked; });
+  });
+  validarFicha();
 }
 function poblarSelectNominaParticipante(sel) {
   const nom = cargarNominaLS();
@@ -1095,6 +1114,7 @@ function renumerarParticipantes() {
   document.getElementById('btnAgregarParticipante').disabled = numParticipantes >= MAX_PARTICIPANTES;
 }
 document.getElementById('btnAgregarParticipante').addEventListener('click', agregarParticipante);
+document.getElementById('btnCopiarATodos').addEventListener('click', () => copiarDatosViajeDesde1(null));
 
 // ---- Actividades ----
 const contActividades = document.getElementById('filasActividades');
