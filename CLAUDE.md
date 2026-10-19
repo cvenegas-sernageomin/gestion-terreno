@@ -1,7 +1,7 @@
 # Gestión de Terreno (solicitud de camioneta) — notas para Claude
 
-PWA de solicitud de vehículo y ficha pre-terreno. Repo `cvenegas-sernageomin/gestion-pre-terreno` (rama `main`).
-No tiene ficha en la memoria todavía: si se trabaja en profundidad, crear `proyecto-gestion-pre-terreno`.
+PWA de solicitud de vehículo y ficha pre-terreno. Repo `cvenegas-sernageomin/gestion-terreno` (rama `main`).
+No tiene ficha en la memoria todavía: si se trabaja en profundidad, crear `proyecto-gestion-terreno`.
 
 ## Reglas
 - Un solo `index.html` sin build + `sw.js` (`CACHE='solicitud-camioneta-vN'`, subirlo en cada cambio).

@@ -1,7 +1,7 @@
 {
   "upload_type": "software",
-  "title": "Gestión Pre-Terreno",
-  "description": "<p>Aplicación web instalable (PWA) para preparar las campañas de terreno: solicitud de camioneta y conductor y datos del cometido.</p><p>Publicado en https://cvenegas-sernageomin.github.io/gestion-pre-terreno/</p><p>La licencia CC BY-NC 4.0 cubre el trabajo original de los autores. No cubre el material de terceros:</p><ul><li>Las librerías de terceros incluidas (por ejemplo en vendor/) conservan sus propias licencias.</li></ul>",
+  "title": "Gestión de Terreno",
+  "description": "<p>Aplicación web instalable (PWA) para preparar las campañas de terreno: solicitud de camioneta y conductor y datos del cometido.</p><p>Publicado en https://cvenegas-sernageomin.github.io/gestion-terreno/</p><p>La licencia CC BY-NC 4.0 cubre el trabajo original de los autores. No cubre el material de terceros:</p><ul><li>Las librerías de terceros incluidas (por ejemplo en vendor/) conservan sus propias licencias.</li></ul>",
   "creators": [
     {
       "name": "Servicio Nacional de Geología y Minería (SERNAGEOMIN)"
@@ -21,7 +21,7 @@
   ],
   "related_identifiers": [
     {
-      "identifier": "https://cvenegas-sernageomin.github.io/gestion-pre-terreno/",
+      "identifier": "https://cvenegas-sernageomin.github.io/gestion-terreno/",
       "relation": "isDocumentedBy",
       "resource_type": "other"
     }

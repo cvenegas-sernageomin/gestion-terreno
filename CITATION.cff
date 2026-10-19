@@ -1,6 +1,6 @@
 cff-version: 1.2.0
 message: "Si usa este trabajo, cítelo como se indica abajo."
-title: "Gestión Pre-Terreno"
+title: "Gestión de Terreno"
 type: software
 authors:
   - name: "Servicio Nacional de Geología y Minería (SERNAGEOMIN)"
@@ -9,8 +9,8 @@ authors:
     affiliation: "Servicio Nacional de Geología y Minería (SERNAGEOMIN)"
 date-released: 2026-10-06
 license: CC-BY-NC-4.0
-url: "https://cvenegas-sernageomin.github.io/gestion-pre-terreno/"
-repository-code: "https://github.com/cvenegas-sernageomin/gestion-pre-terreno"
+url: "https://cvenegas-sernageomin.github.io/gestion-terreno/"
+repository-code: "https://github.com/cvenegas-sernageomin/gestion-terreno"
 keywords:
   - "planificación de terreno"
   - "PWA"
