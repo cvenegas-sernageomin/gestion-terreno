@@ -23,7 +23,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>Gestión Pre-Terreno</title>
+<title>Gestión de Terreno</title>
 <meta name="theme-color" content="#c66b21">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="icons/icon-192.png">
@@ -39,6 +39,9 @@
   nav.tabs .tab-btn{flex:1;background:none;border:none;padding:12px 8px;font-size:13px;font-weight:600;
     color:#888;cursor:pointer;border-bottom:3px solid transparent;}
   nav.tabs .tab-btn.activo{color:var(--nar);border-bottom-color:var(--nar);}
+  nav.tabs.top{max-width:none;background:#fff;border-bottom:2px solid var(--nar);}
+  nav.tabs.top .tab-btn{font-size:15px;}
+  #panelPost iframe{display:block;width:100%;height:calc(100vh - 110px);min-height:500px;border:0;background:#fff;}
   main{max-width:680px;margin:0 auto;padding:16px;}
   .card{background:#fff;border:1px solid var(--borde);border-radius:10px;padding:16px;margin-bottom:14px;}
   .card h2{font-size:14px;margin:0 0 10px;color:var(--nar-osc);}
@@ -81,9 +84,16 @@
 <body>
 
 <header>
-  <h1>🧭 Gestión Pre-Terreno</h1>
-  <span class="ver">v2</span>
+  <h1>🧭 Gestión de Terreno</h1>
+  <span class="ver">v3</span>
 </header>
+
+<nav class="tabs top">
+  <button class="tab-btn activo" id="topBtnPre" type="button">🎒 Pre-terreno</button>
+  <button class="tab-btn" id="topBtnPost" type="button">📝 Post-terreno</button>
+</nav>
+
+<div id="panelPre">
 
 <nav class="tabs">
   <button class="tab-btn activo" id="tabBtnCamioneta" type="button">🚙 Solicitud de Camioneta</button>
@@ -424,6 +434,11 @@
 </div>
 
 </main>
+</div>
+
+<div id="panelPost" style="display:none">
+  <iframe id="frameInforme" title="Informe de Cometido" data-src="informe/index.html"></iframe>
+</div>
 
 <footer>
   El botón "Generar planilla" descarga la planilla oficial ya rellenada. El botón "Abrir correo"
@@ -524,6 +539,24 @@ tabBtnFicha.addEventListener('click', () => {
   tabBtnFicha.classList.add('activo');
   tabBtnCamioneta.classList.remove('activo');
 });
+
+// Pestañas superiores: Pre-terreno / Post-terreno (informe de cometido en iframe, carga perezosa)
+(function () {
+  const bPre = document.getElementById('topBtnPre'), bPost = document.getElementById('topBtnPost');
+  const pPre = document.getElementById('panelPre'), pPost = document.getElementById('panelPost');
+  const fr = document.getElementById('frameInforme');
+  function ir(post) {
+    pPre.style.display = post ? 'none' : '';
+    pPost.style.display = post ? '' : 'none';
+    bPre.classList.toggle('activo', !post);
+    bPost.classList.toggle('activo', post);
+    if (post && !fr.getAttribute('src')) fr.setAttribute('src', fr.dataset.src);
+    try { sessionStorage.setItem('gt-top', post ? 'post' : 'pre'); } catch (e) { }
+  }
+  bPre.addEventListener('click', () => ir(false));
+  bPost.addEventListener('click', () => ir(true));
+  try { if (sessionStorage.getItem('gt-top') === 'post') ir(true); } catch (e) { }
+})();
 
 // ============================================================
 // Utilidades
@@ -876,7 +909,7 @@ function construirMailto(d) {
     `¿Sobre altura geográfica?: ${d.alturaGeografica}`,
     `Permiso de circulación: ${d.permisoCirculacion || '(no indicado)'}`,
     `Observaciones: ${d.observacion || '(sin observaciones)'}`,
-    '', 'Enviado desde la PWA Gestión Pre-Terreno (SERNAGEOMIN).',
+    '', 'Enviado desde la PWA Gestión de Terreno (SERNAGEOMIN).',
   ].join('\r\n');
   return `mailto:${ENCARGADO_FLOTA_EMAIL}?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(cuerpo)}`;
 }
@@ -1413,7 +1446,7 @@ function construirMailtoFicha(d) {
     `Viático total estimado: $${clp(calcularViatico(d).totalGeneral)}`,
     `Fondos a rendir: $${clp(d.imprevistos + d.lavado + d.peajes + d.otroMonto)}`,
     `Observaciones: ${d.observacionesGral || '(sin observaciones)'}`,
-    '', 'Enviado desde la PWA Gestión Pre-Terreno (SERNAGEOMIN).',
+    '', 'Enviado desde la PWA Gestión de Terreno (SERNAGEOMIN).',
   ].join('\r\n');
   return `mailto:${DESTINATARIO_FICHA_EMAIL}?subject=${encodeURIComponent(asunto)}&body=${encodeURIComponent(cuerpo)}`;
 }

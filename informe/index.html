@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Informe de Cometido</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0b6db6">
+<link rel="icon" href="icon.svg">
+<style>
+:root{--bg:#f4f6f9;--card:#fff;--fg:#1c2733;--mut:#5d6b7a;--br:#cfd8e3;--ac:#0b6db6;--ac2:#0b6db6;--rj:#ee4042;--dng:#c62828}
+@media (prefers-color-scheme:dark){:root{--bg:#12181f;--card:#1b242e;--fg:#e6ecf2;--mut:#93a2b3;--br:#33424f;--ac:#5aaae8;--ac2:#5aaae8;--rj:#ee4042;--dng:#f28b82}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.4 system-ui,Segoe UI,sans-serif}
+header{background:#0b6db6;border-bottom:4px solid var(--rj);color:#fff;padding:12px 16px;position:sticky;top:0;z-index:5;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+
+header h1{font-size:17px;margin:0;flex:1;min-width:180px}
+main{max-width:900px;margin:0 auto;padding:12px 16px 90px}
+section{background:var(--card);border:1px solid var(--br);border-radius:10px;padding:12px 14px;margin:12px 0}
+h2{border-left:4px solid var(--rj);padding-left:8px;font-size:14px;text-transform:uppercase;letter-spacing:.04em;color:var(--ac);margin:0 0 10px}
+.g{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+label{display:block;font-size:12px;color:var(--mut)}
+input,textarea,select{width:100%;margin-top:3px;padding:8px;border:1px solid var(--br);border-radius:6px;background:var(--bg);color:var(--fg);font:inherit}
+textarea{resize:vertical;min-height:60px}
+button{font:inherit;border:0;border-radius:8px;padding:9px 14px;cursor:pointer;background:var(--ac);color:#fff}
+@media (prefers-color-scheme:dark){button{color:#0b1218}}
+button.s{background:transparent;color:var(--ac);border:1px solid var(--ac)}
+header button{background:#fff;color:var(--ac)}
+header button.s{background:transparent;color:#fff;border-color:#fff}
+
+.row{border:1px dashed var(--br);border-radius:8px;padding:8px;margin:8px 0;position:relative}
+.row .x{position:absolute;top:4px;right:4px;background:transparent;color:var(--dng);padding:2px 8px;font-size:18px}
+.bar{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;align-items:center}
+.tot{margin-left:auto;color:var(--mut);font-size:13px}
+.hint{font-size:12px;color:var(--mut);margin:0 0 8px}
+.sw{display:flex;align-items:center;gap:8px;color:var(--fg);font-size:14px}
+.sw input{width:auto;margin:0}
+#msg{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);background:#222;color:#fff;padding:8px 14px;border-radius:8px;opacity:0;transition:.3s;pointer-events:none}
+#msg.on{opacity:1}
+</style>
+</head>
+<body>
+<header>
+  <h1>Informe de Técnico Cometido Funcionario</h1>
+  <button class="s" id="bNuevo">Nuevo</button>
+  <button class="s" id="bGuardar">Guardar .json</button>
+  <button class="s" id="bCargar">Abrir .json</button>
+  <button id="bWord">Exportar a Word</button>
+  <input type="file" id="fJson" accept=".json,application/json" hidden>
+</header>
+<main>
+<section>
+  <h2>Solicitud y resolución</h2>
+  <div class="g">
+    <label>Fecha de solicitud<input type="date" data-k="fechaSolicitud"></label>
+    <label>Res. N°<input data-k="resolucion" placeholder="121092/558/2026"></label>
+    <label>Fecha de resolución<input type="date" data-k="fechaResolucion"></label>
+    <label>Solicitud N°<input data-k="solicitud"></label>
+  </div>
+</section>
+<section>
+  <h2>Salida y llegada</h2>
+  <div class="g">
+    <label>Fecha de salida<input type="date" data-k="fechaSalida"></label>
+    <label>Hora de salida<input type="time" data-k="horaSalida"></label>
+    <label>Fecha de llegada<input type="date" data-k="fechaLlegada"></label>
+    <label>Hora de llegada<input type="time" data-k="horaLlegada"></label>
+  </div>
+</section>
+<section>
+  <h2>Ubicaciones</h2>
+  <div id="ubic"></div>
+  <div class="bar"><button class="s" id="aUbic">+ Agregar ubicación</button></div>
+</section>
+<section>
+  <h2>Identificación de funcionario</h2>
+  <div class="g">
+    <label>Nombre<input data-k="nombre"></label>
+    <label>RUT<input data-k="rut" placeholder="12.345.678-9"></label>
+    <label>Categoría<input data-k="categoria"></label>
+    <label>Estamento<input data-k="estamento" list="estam"></label>
+    <datalist id="estam"><option>Profesional</option><option>Técnico</option><option>Administrativo</option><option>Directivo</option><option>Auxiliar</option></datalist>
+  </div>
+</section>
+<section>
+  <h2>Objetivo del cometido</h2>
+  <textarea data-k="objetivo" rows="3"></textarea>
+</section>
+<section>
+  <h2>Itinerario</h2>
+  <p class="hint">Una fila por día. Las horas se suman abajo.</p>
+  <div id="itin"></div>
+  <div class="bar">
+    <button class="s" id="aItin">+ Agregar día</button>
+    <button class="s" id="aRango">+ Rellenar rango salida→llegada</button>
+    <span class="tot" id="totItin"></span>
+  </div>
+</section>
+<section>
+  <h2>Reconocimiento de descanso complementario</h2>
+  <p class="hint">Opcional. El día de la semana se calcula desde la fecha; puede agregar “(feriado)”.</p>
+  <div id="desc"></div>
+  <div class="bar">
+    <button class="s" id="aDesc">+ Agregar día</button>
+    <button class="s" id="aDescIt">+ Copiar desde itinerario…</button>
+    <span class="tot" id="totDesc"></span>
+  </div>
+</section>
+<section>
+  <h2>Opciones de exportación</h2>
+  <p class="hint">Firma (opcional): se guarda solo en este dispositivo y se inserta sobre «Firma de funcionario solicitante».</p>
+  <div class="bar">
+    <input type="file" id="fFirma" accept="image/*" style="max-width:280px">
+    <img id="pFirma" alt="" style="height:48px;display:none;background:#fff;border:1px solid var(--br);border-radius:6px">
+    <button class="s" id="qFirma" style="display:none">Quitar firma</button>
+  </div>
+</section>
+</main>
+<div id="msg"></div>
+<script src="jszip.min.js"></script>
+<script src="template.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

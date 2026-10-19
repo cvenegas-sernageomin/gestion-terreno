@@ -1,7 +1,7 @@
 {
-  "name": "Gestión Pre-Terreno",
-  "short_name": "Pre-Terreno",
-  "description": "Solicitud de camioneta y conductor, y Ficha para cometidos funcionarios, con las planillas oficiales ya rellenadas.",
+  "name": "Gestión de Terreno",
+  "short_name": "Terreno",
+  "description": "Pre-terreno: solicitud de camioneta y ficha para cometidos. Post-terreno: informe de cometido.",
   "start_url": ".",
   "scope": ".",
   "display": "standalone",
