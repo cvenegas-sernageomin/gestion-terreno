@@ -86,7 +86,7 @@
 
 <header>
   <h1>🧭 Gestión de Terreno</h1>
-  <span class="ver">v5</span>
+  <span class="ver">v6</span>
 </header>
 
 <nav class="tabs top">
@@ -123,13 +123,18 @@
       para no dejar RUT ni teléfonos de emergencia expuestos en la app pública. Si trabajas desde
       otro equipo, cárgala de nuevo ahí con "Importar nómina" — guarda tú ese archivo en un lugar
       privado (nunca en el repositorio).
+      «Agregar desde CSV» suma personas o camionetas a tu nómina sin borrar lo que ya tienes
+      (columnas: nombre, rut, celular, telEmergencia, contactoEmergencia, patente, vehiculo, origen, rol).
+      Los datos quedan solo en tu navegador.
     </p>
     <div id="filasNomina"></div>
     <div class="fila-botones" style="margin-top:10px;">
       <button class="btn secundario" id="btnAgregarNomina" type="button">+ Agregar conductor</button>
       <button class="btn secundario" id="btnExportarNomina" type="button">📤 Exportar nómina (.json)</button>
       <button class="btn secundario" id="btnImportarNomina" type="button">📥 Importar nómina (.json)</button>
+      <button class="btn secundario" id="btnImportarCsv" type="button">📥 Agregar desde CSV</button>
       <input type="file" id="fileImportarNomina" accept="application/json" style="display:none;">
+      <input type="file" id="fileImportarCsv" accept=".csv,text/csv" multiple style="display:none;">
     </div>
     <div class="aviso" id="avisoNomina"></div>
   </div>
@@ -622,7 +627,8 @@ let numFilas = 0;
 
 function listaConductoresActiva() {
   const nom = cargarNominaLS();
-  return nom.length ? nom.map(n => n.nombre) : CONDUCTORES;
+  const cond = nom.filter(n => n.nombre && !/ge[óo]log|profesional/i.test(n.rol || ''));
+  return cond.length ? cond.map(n => n.nombre) : CONDUCTORES;
 }
 function listaPatentesActiva() {
   const nom = cargarNominaLS().filter(n => n.patente);
@@ -1100,7 +1106,7 @@ function copiarDatosViajeDesde1(destino) {
   validarFicha();
 }
 function poblarSelectNominaParticipante(sel) {
-  const nom = cargarNominaLS();
+  const nom = cargarNominaLS().filter(n => n.nombre);
   sel.innerHTML = '<option value="">— elegir —</option>' +
     nom.map(n => `<option value="${escXml(n.nombre)}">${escXml(n.nombre)}</option>`).join('');
 }
@@ -1705,6 +1711,7 @@ function agregarFilaNomina(datos) {
     div.querySelector('.nPatente').value = datos.patente || '';
     div.querySelector('.nVehiculo').value = datos.vehiculo || '';
     div.querySelector('.nOrigen').value = datos.origen || '';
+    if (datos.rol) div.dataset.rol = datos.rol;
   }
   div.querySelectorAll('input').forEach(el => el.addEventListener('input', () => {
     guardarNominaLS();
@@ -1735,7 +1742,8 @@ function recolectarNomina() {
     patente: div.querySelector('.nPatente').value.trim(),
     vehiculo: div.querySelector('.nVehiculo').value.trim(),
     origen: div.querySelector('.nOrigen').value.trim(),
-  })).filter(n => n.nombre);
+    rol: div.dataset.rol || '',
+  })).filter(n => n.nombre || n.patente);
 }
 function guardarNominaLS() {
   try { localStorage.setItem(LS_KEY_NOMINA, JSON.stringify(recolectarNomina())); } catch (e) {}
@@ -1774,6 +1782,52 @@ document.getElementById('fileImportarNomina').addEventListener('change', async (
     document.getElementById('avisoNomina').textContent = `Nómina importada: ${file.name}`;
   } catch (err) {
     document.getElementById('avisoNomina').textContent = 'No se pudo leer el archivo: ' + err.message;
+  }
+  e.target.value = '';
+});
+
+// ---- Importar CSV (se suma a la nómina local; nada sale del navegador) ----
+function parsearCsv(txt) {
+  txt = txt.replace(/^﻿/, '');
+  const primera = txt.split(/\r?\n/, 1)[0];
+  const sep = (primera.split(';').length >= primera.split(',').length) ? ';' : ',';
+  const filas = []; let fila = [], cel = '', q = false;
+  for (let i = 0; i < txt.length; i++) {
+    const c = txt[i];
+    if (q) { if (c === '"') { if (txt[i + 1] === '"') { cel += '"'; i++; } else q = false; } else cel += c; }
+    else if (c === '"') q = true;
+    else if (c === sep) { fila.push(cel); cel = ''; }
+    else if (c === '\n') { fila.push(cel); filas.push(fila); fila = []; cel = ''; }
+    else if (c !== '\r') cel += c;
+  }
+  if (cel || fila.length) { fila.push(cel); filas.push(fila); }
+  const cab = (filas.shift() || []).map(h => h.trim());
+  return filas.filter(f => f.some(x => x.trim())).map(f => { const o = {}; cab.forEach((h, i) => { o[h] = (f[i] || '').trim(); }); return o; });
+}
+document.getElementById('btnImportarCsv').addEventListener('click', () => document.getElementById('fileImportarCsv').click());
+document.getElementById('fileImportarCsv').addEventListener('change', async (e) => {
+  const aviso = document.getElementById('avisoNomina');
+  try {
+    const actuales = recolectarNomina();
+    const clave = n => (n.rut || n.patente || n.nombre || '').replace(/[.\s-]/g, '').toLowerCase();
+    let nuevos = 0, actualizados = 0;
+    for (const file of e.target.files) {
+      for (const r of parsearCsv(await file.text())) {
+        const n = { nombre: r.nombre || '', rut: r.rut || '', celular: r.celular || '', telEmergencia: r.telEmergencia || '',
+          contactoEmergencia: r.contactoEmergencia || '', patente: r.patente || '', vehiculo: r.vehiculo || '', origen: r.origen || '', rol: r.rol || '' };
+        if (!clave(n)) continue;
+        const ex = actuales.find(a => clave(a) === clave(n));
+        if (ex) { Object.keys(n).forEach(k => { if (n[k]) ex[k] = n[k]; }); actualizados++; }
+        else { actuales.push(n); nuevos++; }
+      }
+    }
+    contNomina.innerHTML = ''; numNomina = 0;
+    actuales.forEach(n => agregarFilaNomina(n));
+    guardarNominaLS();
+    refrescarSelectsDesdeNomina();
+    aviso.textContent = `CSV cargado: ${nuevos} nuevos, ${actualizados} actualizados. Quedan solo en este navegador.`;
+  } catch (err) {
+    aviso.textContent = 'No se pudo leer el CSV: ' + err.message;
   }
   e.target.value = '';
 });
