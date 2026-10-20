@@ -1,4 +1,4 @@
-# Gestión de Terreno
+# Gestión Terreno
 
 Aplicación web instalable (PWA) para preparar las campañas de terreno: solicitud de camioneta y conductor y datos del cometido.
 
@@ -14,4 +14,4 @@ Las librerías de terceros incluidas (por ejemplo en `vendor/`) conservan sus pr
 
 Cita sugerida:
 
-> SERNAGEOMIN / Venegas Benavides, C. (2026). Gestión de Terreno [aplicación web]. https://cvenegas-sernageomin.github.io/gestion-terreno/
+> SERNAGEOMIN / Venegas Benavides, C. (2026). Gestión Terreno [aplicación web]. https://cvenegas-sernageomin.github.io/gestion-terreno/

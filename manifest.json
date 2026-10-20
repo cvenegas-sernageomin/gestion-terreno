@@ -1,6 +1,6 @@
 {
-  "name": "Gestión de Terreno",
-  "short_name": "Terreno",
+  "name": "Gestión Terreno",
+  "short_name": "Gestión Terreno",
   "description": "Pre-terreno: solicitud de camioneta y ficha para cometidos. Post-terreno: informe de cometido.",
   "start_url": ".",
   "scope": ".",
