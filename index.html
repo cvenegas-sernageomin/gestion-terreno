@@ -88,7 +88,7 @@
 
 <header>
   <h1>🧭 Gestión de Terreno</h1>
-  <span class="ver">v9</span>
+  <span class="ver">v10</span>
 </header>
 
 <nav class="tabs top">
@@ -370,6 +370,29 @@
         <label for="tPeajes">Peajes ($)</label>
         <input type="number" id="tPeajes" min="0" step="1" value="0">
       </div>
+    </div>
+
+    <h3 style="font-size:13px;margin:16px 0 0;color:var(--nar-osc);">Alarife (se rinde el líquido)</h3>
+    <div class="grid3">
+      <div><label for="tAlaDias">Días</label><input type="number" id="tAlaDias" min="0" step="1" value="0"></div>
+      <div><label for="tAlaValor">Valor diario bruto ($)</label><input type="number" id="tAlaValor" min="0" step="1" value="65700"></div>
+      <div><label for="tAlaRet">Retención (%)</label><input type="number" id="tAlaRet" min="0" max="100" step="0.01" value="15.25"></div>
+    </div>
+    <div class="subtotal" id="subtotalAlarife"></div>
+
+    <h3 style="font-size:13px;margin:16px 0 0;color:var(--nar-osc);">Arriendo de caballos (se agrega IVA 19%)</h3>
+    <div class="grid3">
+      <div><label for="tCabValor">Valor por caballo por día ($)</label><input type="number" id="tCabValor" min="0" step="1" value="35000"></div>
+      <div><label for="tCab1N">Cabalgata 1 — N° caballos</label><input type="number" id="tCab1N" min="0" step="1" value="0"></div>
+      <div><label for="tCab1D">Cabalgata 1 — días</label><input type="number" id="tCab1D" min="0" step="1" value="0"></div>
+      <div></div>
+      <div><label for="tCab2N">Cabalgata 2 — N° caballos</label><input type="number" id="tCab2N" min="0" step="1" value="0"></div>
+      <div><label for="tCab2D">Cabalgata 2 — días</label><input type="number" id="tCab2D" min="0" step="1" value="0"></div>
+    </div>
+    <div class="subtotal" id="subtotalCaballos"></div>
+
+    <h3 style="font-size:13px;margin:16px 0 0;color:var(--nar-osc);">Otros gastos</h3>
+    <div class="grid2">
       <div>
         <label for="tOtroConcepto">Otro — ¿cuál?</label>
         <input type="text" id="tOtroConcepto" placeholder="Opcional">
@@ -674,7 +697,7 @@ const SUBDIRECCIONES = ['Subdirección Nacional de Geología', 'Subdirección Na
 const TARIFA_PROF_100 = 85721, TARIFA_PROF_40 = 34288;
 const TARIFA_ADM_100 = 58501, TARIFA_ADM_40 = 23400;
 
-const MAX_PARTICIPANTES = 5, MAX_ACTIVIDADES = 8, MAX_EPP = 10;
+const MAX_PARTICIPANTES = 5, MAX_ACTIVIDADES = 14, MAX_EPP = 10;
 
 // Nómina privada (RUT, teléfonos de emergencia, patentes): SOLO en localStorage de este
 // navegador — nunca se escribe en este archivo ni se sube a GitHub.
@@ -1420,6 +1443,10 @@ function recolectarDatosFicha() {
     peajes: Number(document.getElementById('tPeajes').value || 0),
     otroConcepto: v('tOtroConcepto'),
     otroMonto: Number(document.getElementById('tOtroMonto').value || 0),
+    alaDias: Number(document.getElementById('tAlaDias').value || 0), alaValor: Number(document.getElementById('tAlaValor').value || 0),
+    alaRet: Number(document.getElementById('tAlaRet').value || 0), cabValor: Number(document.getElementById('tCabValor').value || 0),
+    cab1N: Number(document.getElementById('tCab1N').value || 0), cab1D: Number(document.getElementById('tCab1D').value || 0),
+    cab2N: Number(document.getElementById('tCab2N').value || 0), cab2D: Number(document.getElementById('tCab2D').value || 0),
     actividades: recolectarActividades(),
     epp: recolectarEpp(),
     riesgosIdent: v('tRiesgosIdent'), riesgosMedidas: v('tRiesgosMedidas'), riesgosPlanEmerg: v('tRiesgosPlanEmerg'),
@@ -1446,13 +1473,29 @@ function calcularViatico(d) {
   };
 }
 
+function calcularAlarife(d) {
+  const bruto = d.alaDias * d.alaValor;
+  const retencion = Math.round(bruto * d.alaRet / 100);
+  return { bruto, retencion, liquido: bruto - retencion };
+}
+function calcularCaballos(d) {
+  const caballoDias = d.cab1N * d.cab1D + d.cab2N * d.cab2D;
+  const neto = caballoDias * d.cabValor;
+  const iva = Math.round(neto * 0.19);
+  return { caballoDias, neto, iva, total: neto + iva };
+}
+function totalFondos(d) {
+  return d.imprevistos + d.lavado + d.peajes + d.otroMonto + calcularAlarife(d).liquido + calcularCaballos(d).total;
+}
 function actualizarSubtotalesFicha() {
   const d = recolectarDatosFicha();
   const via = calcularViatico(d);
   document.getElementById('subtotalViatico').innerHTML =
     `Profesional: <b>$${clp(via.gProf)}</b> · Administrativo: <b>$${clp(via.gAdm)}</b> · Total viático: <b>$${clp(via.totalGeneral)}</b>`;
-  const totalFondos = d.imprevistos + d.lavado + d.peajes + d.otroMonto;
-  document.getElementById('subtotalFondos').innerHTML = `Total fondos a rendir: <b>$${clp(totalFondos)}</b>`;
+  const al = calcularAlarife(d), cb = calcularCaballos(d);
+  document.getElementById('subtotalAlarife').innerHTML = `Bruto $${clp(al.bruto)} − retención ${d.alaRet}% ($${clp(al.retencion)}) = líquido <b>$${clp(al.liquido)}</b>`;
+  document.getElementById('subtotalCaballos').innerHTML = `${cb.caballoDias} caballo-días × $${clp(d.cabValor)} = neto $${clp(cb.neto)} + IVA 19% $${clp(cb.iva)} = <b>$${clp(cb.total)}</b>`;
+  document.getElementById('subtotalFondos').innerHTML = `Total fondos a rendir: <b>$${clp(totalFondos(d))}</b>`;
 }
 
 function validarFicha() {
@@ -1480,6 +1523,7 @@ function validarFicha() {
   'tVehCamioneta', 'tVehCarro', 'tVehOtro', 'tValorCombustible', 'tObsTransporte', 'tOtrosTransporte',
   'tDiasProf100', 'tDiasProf40', 'tDiasAdm100', 'tDiasAdm40',
   'tImprevistos', 'tLavado', 'tPeajes', 'tOtroConcepto', 'tOtroMonto',
+  'tAlaDias', 'tAlaValor', 'tAlaRet', 'tCabValor', 'tCab1N', 'tCab1D', 'tCab2N', 'tCab2D',
   'tRiesgosIdent', 'tRiesgosMedidas', 'tRiesgosPlanEmerg',
   'tFechaElab', 'tElaboradoPor', 'tFechaRev', 'tRevisadoPor', 'tDiasInhabiles',
 ].forEach(id => {
@@ -1544,7 +1588,12 @@ function construirReemplazosFicha(d) {
   rep.FONDOS_OTRO_LABEL = d.otroConcepto ? `Otro (${d.otroConcepto})` : 'Otro (¿cuál?)';
   rep.FONDOS_E38 = clp(d.imprevistos); rep.FONDOS_E39 = clp(d.lavado);
   rep.FONDOS_E40 = clp(d.peajes); rep.FONDOS_E41 = clp(d.otroMonto);
-  rep.FONDOS_E42 = clp(d.imprevistos + d.lavado + d.peajes + d.otroMonto);
+  rep.FONDOS_E42 = clp(totalFondos(d));
+  const _al = calcularAlarife(d), _cb = calcularCaballos(d);
+  rep.FONDOS_ALARIFE = clp(_al.liquido);
+  rep.FONDOS_DET_ALARIFE = d.alaDias ? `${d.alaDias} días × $${clp(d.alaValor)} bruto − ${d.alaRet}% retención ($${clp(_al.retencion)})` : '';
+  rep.FONDOS_CABALLOS = clp(_cb.total);
+  rep.FONDOS_DET_CABALLOS = _cb.caballoDias ? `${_cb.caballoDias} caballo-días × $${clp(d.cabValor)} = $${clp(_cb.neto)} + IVA 19% $${clp(_cb.iva)}` : '';
   rep.FONDOS_DET_G38 = ''; rep.FONDOS_DET_G39 = ''; rep.FONDOS_DET_G40 = ''; rep.FONDOS_DET_G41 = '';
 
   for (let i = 1; i <= MAX_ACTIVIDADES; i++) {
@@ -1631,7 +1680,7 @@ function construirMailtoFicha(d) {
     `Ciudad de destino: ${d.ciudadDestino}`,
     `Participantes: ${d.participantes.map(p => p.nombre).join(', ') || '(sin indicar)'}`,
     `Viático total estimado: $${clp(calcularViatico(d).totalGeneral)}`,
-    `Fondos a rendir: $${clp(d.imprevistos + d.lavado + d.peajes + d.otroMonto)}`,
+    `Fondos a rendir: $${clp(totalFondos(d))}`,
     `Observaciones: ${d.observacionesGral || '(sin observaciones)'}`,
     '', 'Enviado desde la PWA Gestión de Terreno (SERNAGEOMIN).',
   ].join('\r\n');
@@ -1737,6 +1786,8 @@ function obtenerEstadoFicha() {
     valorCombustible: v('tValorCombustible'), obsTransporte: v('tObsTransporte'), otrosTransporte: v('tOtrosTransporte'),
     diasProf100: v('tDiasProf100'), diasProf40: v('tDiasProf40'), diasAdm100: v('tDiasAdm100'), diasAdm40: v('tDiasAdm40'),
     imprevistos: v('tImprevistos'), lavado: v('tLavado'), peajes: v('tPeajes'), otroConcepto: v('tOtroConcepto'), otroMonto: v('tOtroMonto'),
+    alaDias: v('tAlaDias'), alaValor: v('tAlaValor'), alaRet: v('tAlaRet'), cabValor: v('tCabValor'),
+    cab1N: v('tCab1N'), cab1D: v('tCab1D'), cab2N: v('tCab2N'), cab2D: v('tCab2D'),
     riesgosIdent: v('tRiesgosIdent'), riesgosMedidas: v('tRiesgosMedidas'), riesgosPlanEmerg: v('tRiesgosPlanEmerg'),
     fechaElab: v('tFechaElab'), elaboradoPor: v('tElaboradoPor'), fechaRev: v('tFechaRev'), revisadoPor: v('tRevisadoPor'),
     diasInhabiles: v('tDiasInhabiles'),
@@ -1756,6 +1807,8 @@ function aplicarEstadoFicha(e) {
   set('tValorCombustible', e.valorCombustible); set('tObsTransporte', e.obsTransporte); set('tOtrosTransporte', e.otrosTransporte);
   set('tDiasProf100', e.diasProf100); set('tDiasProf40', e.diasProf40); set('tDiasAdm100', e.diasAdm100); set('tDiasAdm40', e.diasAdm40);
   set('tImprevistos', e.imprevistos); set('tLavado', e.lavado); set('tPeajes', e.peajes); set('tOtroConcepto', e.otroConcepto); set('tOtroMonto', e.otroMonto);
+  set('tAlaDias', e.alaDias); set('tAlaValor', e.alaValor); set('tAlaRet', e.alaRet); set('tCabValor', e.cabValor);
+  set('tCab1N', e.cab1N); set('tCab1D', e.cab1D); set('tCab2N', e.cab2N); set('tCab2D', e.cab2D);
   set('tRiesgosIdent', e.riesgosIdent); set('tRiesgosMedidas', e.riesgosMedidas); set('tRiesgosPlanEmerg', e.riesgosPlanEmerg);
   set('tFechaElab', e.fechaElab); set('tElaboradoPor', e.elaboradoPor); set('tFechaRev', e.fechaRev); set('tRevisadoPor', e.revisadoPor);
   set('tDiasInhabiles', e.diasInhabiles);
