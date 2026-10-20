@@ -88,7 +88,7 @@
 
 <header>
   <h1>🧭 Gestión de Terreno</h1>
-  <span class="ver">v10</span>
+  <span class="ver">v11</span>
 </header>
 
 <nav class="tabs top">
@@ -336,13 +336,19 @@
     <h2>5. Viático</h2>
     <div class="grid2">
       <div>
-        <label for="tDiasProf100">Profesional — días al 100%</label>
+        <label for="tDiasProf100">Profesional 1 — días al 100%</label>
         <input type="number" id="tDiasProf100" min="0" step="1" value="0">
       </div>
       <div>
-        <label for="tDiasProf40">Profesional — días al 40%</label>
+        <label for="tDiasProf40">Profesional 1 — días al 40%</label>
         <input type="number" id="tDiasProf40" min="0" step="1" value="0">
       </div>
+    </div>
+    <div id="filasProfExtra"></div>
+    <div class="fila-botones" style="margin-top:10px;">
+      <button class="btn secundario" id="btnAgregarProf" type="button">+ Agregar profesional</button>
+    </div>
+    <div class="grid2">
       <div>
         <label for="tDiasAdm100">Administrativo — días al 100%</label>
         <input type="number" id="tDiasAdm100" min="0" step="1" value="0">
@@ -1447,6 +1453,7 @@ function recolectarDatosFicha() {
     alaRet: Number(document.getElementById('tAlaRet').value || 0), cabValor: Number(document.getElementById('tCabValor').value || 0),
     cab1N: Number(document.getElementById('tCab1N').value || 0), cab1D: Number(document.getElementById('tCab1D').value || 0),
     cab2N: Number(document.getElementById('tCab2N').value || 0), cab2D: Number(document.getElementById('tCab2D').value || 0),
+    profExtra: recolectarProfExtra(),
     actividades: recolectarActividades(),
     epp: recolectarEpp(),
     riesgosIdent: v('tRiesgosIdent'), riesgosMedidas: v('tRiesgosMedidas'), riesgosPlanEmerg: v('tRiesgosPlanEmerg'),
@@ -1457,21 +1464,60 @@ function recolectarDatosFicha() {
 }
 
 function calcularViatico(d) {
-  const eProf100 = TARIFA_PROF_100 * d.diasProf100;
-  const eProf40 = d.diasProf40 * TARIFA_PROF_40;
-  const gProf = eProf100 + eProf40;
+  // Profesional 1 (campos fijos) + hasta 3 profesionales adicionales (profExtra)
+  const profs = [{ nombre: '', d100: d.diasProf100, d40: d.diasProf40 }].concat((d.profExtra || []).map(p => ({ nombre: p.nombre, d100: p.d100, d40: p.d40 })));
+  const filas = profs.map(p => {
+    const e100 = TARIFA_PROF_100 * p.d100, e40 = p.d40 * TARIFA_PROF_40;
+    return { nombre: p.nombre, d100: p.d100, d40: p.d40, e100, e40, g: e100 + e40 };
+  });
+  const sum = k => filas.reduce((a, f) => a + f[k], 0);
+  const eProf100 = sum('e100'), eProf40 = sum('e40'), gProf = eProf100 + eProf40;
   const eAdm100 = TARIFA_ADM_100 * d.diasAdm100;
   const eAdm40 = d.diasAdm40 * TARIFA_ADM_40;
   const gAdm = eAdm100 + eAdm40;
   return {
-    eProf100, eProf40, gProf, eAdm100, eAdm40, gAdm,
-    totalDias100: d.diasProf100 + d.diasAdm100,
-    totalDias40: d.diasProf40 + d.diasAdm40,
+    filas, eProf100, eProf40, gProf, eAdm100, eAdm40, gAdm,
+    totalDias100: sum('d100') + d.diasAdm100,
+    totalDias40: sum('d40') + d.diasAdm40,
     total100: eProf100 + eAdm100,
     total40: eProf40 + eAdm40,
     totalGeneral: gProf + gAdm,
   };
 }
+
+// Profesionales adicionales del viático (2 a 4)
+const MAX_PROF_EXTRA = 3;
+const contProfExtra = document.getElementById('filasProfExtra');
+function agregarProfExtra(p) {
+  if (contProfExtra.querySelectorAll('.fila-prof').length >= MAX_PROF_EXTRA) return;
+  const div = document.createElement('div');
+  div.className = 'fila-actividad fila-prof';
+  div.innerHTML = `
+    <span class="num"></span>
+    <button type="button" class="quitar">✕ quitar</button>
+    <label>Nombre (opcional)</label><input type="text" class="vNombre">
+    <div class="grid2">
+      <div><label>Días al 100%</label><input type="number" class="vD100" min="0" step="1" value="0"></div>
+      <div><label>Días al 40%</label><input type="number" class="vD40" min="0" step="1" value="0"></div>
+    </div>`;
+  contProfExtra.appendChild(div);
+  if (p) { div.querySelector('.vNombre').value = p.nombre || ''; div.querySelector('.vD100').value = p.d100 || 0; div.querySelector('.vD40').value = p.d40 || 0; }
+  div.querySelectorAll('input').forEach(el => el.addEventListener('input', validarFicha));
+  div.querySelector('.quitar').addEventListener('click', () => { div.remove(); renumerarProfExtra(); validarFicha(); });
+  renumerarProfExtra();
+}
+function renumerarProfExtra() {
+  const filas = contProfExtra.querySelectorAll('.fila-prof');
+  filas.forEach((div, i) => { div.querySelector('.num').textContent = `Profesional ${i + 2}`; });
+  document.getElementById('btnAgregarProf').disabled = filas.length >= MAX_PROF_EXTRA;
+}
+function recolectarProfExtra() {
+  return Array.from(contProfExtra.querySelectorAll('.fila-prof')).map(div => ({
+    nombre: div.querySelector('.vNombre').value.trim(),
+    d100: Number(div.querySelector('.vD100').value || 0), d40: Number(div.querySelector('.vD40').value || 0),
+  }));
+}
+document.getElementById('btnAgregarProf').addEventListener('click', () => { agregarProfExtra(); validarFicha(); });
 
 function calcularAlarife(d) {
   const bruto = d.alaDias * d.alaValor;
@@ -1491,7 +1537,7 @@ function actualizarSubtotalesFicha() {
   const d = recolectarDatosFicha();
   const via = calcularViatico(d);
   document.getElementById('subtotalViatico').innerHTML =
-    `Profesional: <b>$${clp(via.gProf)}</b> · Administrativo: <b>$${clp(via.gAdm)}</b> · Total viático: <b>$${clp(via.totalGeneral)}</b>`;
+    `${via.filas.length > 1 ? 'Profesionales (' + via.filas.length + ')' : 'Profesional'}: <b>$${clp(via.gProf)}</b> · Administrativo: <b>$${clp(via.gAdm)}</b> · Total viático: <b>$${clp(via.totalGeneral)}</b>`;
   const al = calcularAlarife(d), cb = calcularCaballos(d);
   document.getElementById('subtotalAlarife').innerHTML = `Bruto $${clp(al.bruto)} − retención ${d.alaRet}% ($${clp(al.retencion)}) = líquido <b>$${clp(al.liquido)}</b>`;
   document.getElementById('subtotalCaballos').innerHTML = `${cb.caballoDias} caballo-días × $${clp(d.cabValor)} = neto $${clp(cb.neto)} + IVA 19% $${clp(cb.iva)} = <b>$${clp(cb.total)}</b>`;
@@ -1578,8 +1624,17 @@ function construirReemplazosFicha(d) {
   rep.OTROS_TRANSPORTE = d.otrosTransporte;
 
   const via = calcularViatico(d);
-  rep.VIA_C33 = String(d.diasProf100); rep.VIA_D33 = String(d.diasProf40);
-  rep.VIA_E33 = clp(via.eProf100); rep.VIA_F33 = clp(via.eProf40); rep.VIA_G33 = clp(via.gProf);
+  via.filas.forEach((f, i) => {
+    const n = i + 1;
+    const lbl = n === 1 ? 'Profesional' : (f.nombre ? `Profesional ${n} (${f.nombre})` : `Profesional ${n}`);
+    const k = n === 1 ? ['VIA_C33', 'VIA_D33', 'VIA_E33', 'VIA_F33', 'VIA_G33'] : ['C', 'D', 'E', 'F', 'G'].map(x => `VIA_P${n}_${x}`);
+    rep[`VIA_P${n}_LBL`] = lbl;
+    rep[k[0]] = String(f.d100); rep[k[1]] = String(f.d40); rep[k[2]] = clp(f.e100); rep[k[3]] = clp(f.e40); rep[k[4]] = clp(f.g);
+  });
+  for (let n = via.filas.length + 1; n <= 4; n++) {   // filas sin usar: vacías
+    rep[`VIA_P${n}_LBL`] = '';
+    ['C', 'D', 'E', 'F', 'G'].forEach(x => { rep[`VIA_P${n}_${x}`] = ''; });
+  }
   rep.VIA_C34 = String(d.diasAdm100); rep.VIA_D34 = String(d.diasAdm40);
   rep.VIA_E34 = clp(via.eAdm100); rep.VIA_F34 = clp(via.eAdm40); rep.VIA_G34 = clp(via.gAdm);
   rep.VIA_C35 = String(via.totalDias100); rep.VIA_D35 = String(via.totalDias40);
@@ -1792,6 +1847,7 @@ function obtenerEstadoFicha() {
     fechaElab: v('tFechaElab'), elaboradoPor: v('tElaboradoPor'), fechaRev: v('tFechaRev'), revisadoPor: v('tRevisadoPor'),
     diasInhabiles: v('tDiasInhabiles'),
     participantes: recolectarParticipantes(),
+    profExtra: recolectarProfExtra(),
     actividades: recolectarActividades(),
     epp: recolectarEpp(),
   };
@@ -1836,6 +1892,10 @@ function aplicarEstadoFicha(e) {
     div.querySelector('.pExConfin').checked = !!p.exConfin;
     div.querySelector('.pExCond').checked = !!p.exCond;
   });
+
+  contProfExtra.innerHTML = '';
+  (e.profExtra || []).forEach(p => agregarProfExtra(p));
+  renumerarProfExtra();
 
   contActividades.innerHTML = ''; numActividades = 0;
   (e.actividades || []).forEach(a => {
