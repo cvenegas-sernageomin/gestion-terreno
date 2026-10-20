@@ -88,7 +88,7 @@
 
 <header>
   <h1>🧭 Gestión de Terreno</h1>
-  <span class="ver">v8</span>
+  <span class="ver">v9</span>
 </header>
 
 <nav class="tabs top">
@@ -494,6 +494,8 @@
 
   <div class="card">
     <h2>3. Justificación</h2>
+    <label>¿Para qué son los fondos? (marca los que apliquen; rellena el motivo y los puntos, que luego puedes editar)</label>
+    <div class="checks" id="mConceptos"></div>
     <label for="mMotivo">Motivo del monto sobre 15 UTM</label>
     <input type="text" id="mMotivo">
     <label for="mPuntos">Puntos de la solicitud (uno por línea)</label>
@@ -2189,13 +2191,40 @@ const MEMO_DEFECTO = {
   deNombre: 'sr. Rodrigo Jorquera', deCargo: 'jefe Depto. Geología General(s)', iniciales: '',
   funcNombre: '', funcCargo: 'Geólogo de la Unidad de Geología Regional del Depto. Geología General',
   proyecto: 'de la Unidad de Geología Regional del depto. Geología General de la elaboración del Informe Registrado Central Río Cipreses',
-  ini: '', fin: '', equipo: '',
+  ini: '', fin: '', equipo: '', conceptos: ['caballos', 'proveedor', 'clima'],
   motivo: 'la necesidad crítica de contratar servicios de arriendo de caballos',
   puntos: 'El área de estudio comprende zonas remotas de alta cordillera que carecen de caminos vehiculares. El uso de caballos es el único medio para el traslado de personal y equipamiento.\n' +
     'Debido a la altitud y las condiciones climáticas (acumulación de nieve), estos trabajos solo pueden ejecutarse entre los meses de diciembre y abril.\n' +
     'Para el equipo de trabajo se requiere trato con un proveedor local específico, quien posee los permisos de servidumbre y acceso otorgados por comunidades y privados para el cruce de predios.',
   introMonto: 'El monto solicitado incluye el servicio integral de transporte (animales y guías encargados), además de gastos operativos menores:',
 };
+const CONCEPTOS_MEMO = [
+  { id: 'caballos', nombre: 'Arriendo de caballos', item: 'servicios de arriendo de caballos',
+    punto: 'El área de estudio comprende zonas remotas de alta cordillera que carecen de caminos vehiculares. El uso de caballos es el único medio para el traslado de personal y equipamiento.' },
+  { id: 'alarife', nombre: 'Servicio de alarife', item: 'servicios de alarife',
+    punto: 'El servicio de alarife es necesario para el manejo de la cabalgata, el establecimiento del campamento y la seguridad del equipo en terreno.' },
+  { id: 'proveedor', nombre: 'Proveedor local con servidumbre', item: '',
+    punto: 'Para el equipo de trabajo se requiere trato con un proveedor local específico, quien posee los permisos de servidumbre y acceso otorgados por comunidades y privados para el cruce de predios.' },
+  { id: 'clima', nombre: 'Ventana climática', item: '',
+    punto: 'Debido a la altitud y las condiciones climáticas (acumulación de nieve), estos trabajos solo pueden ejecutarse entre los meses de diciembre y abril.' },
+  { id: 'combustible', nombre: 'Combustible', item: 'cargas de combustible',
+    punto: 'El acceso al área de estudio requiere recorridos prolongados en camioneta, por lo que se necesitan fondos para la carga de combustible.' },
+  { id: 'otro', nombre: 'Otro (lo escribo yo)', item: '', punto: '' },
+];
+function construirJustificacion(ids) {
+  const sel = CONCEPTOS_MEMO.filter(c => ids.includes(c.id));
+  const items = sel.map(c => c.item).filter(Boolean);
+  const lista = items.length > 1 ? items.slice(0, -1).join(', ') + ' y ' + items[items.length - 1] : items[0];
+  const motivo = lista ? `la necesidad crítica de contratar ${lista}` : 'la necesidad de contar con fondos a rendir para la campaña';
+  return { motivo, puntos: sel.map(c => c.punto).filter(Boolean).join('\n') };
+}
+$m('mConceptos').innerHTML = CONCEPTOS_MEMO.map(c => `<label><input type="checkbox" value="${c.id}"> ${escXml(c.nombre)}</label>`).join('');
+$m('mConceptos').addEventListener('change', () => {
+  const j = construirJustificacion(conceptosMarcados());
+  $m('mMotivo').value = j.motivo; $m('mPuntos').value = j.puntos;
+  validarMemo();
+});
+function conceptosMarcados() { return Array.from($m('mConceptos').querySelectorAll('input:checked')).map(i => i.value); }
 const MESES_MEMO = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
 
 function aLetrasES(n) {
@@ -2261,6 +2290,7 @@ const CAMPOS_MEMO = { num: 'mNum', fecha: 'mFecha', mat: 'mMat', aNombre: 'mANom
 function recolectarMemo() {
   const d = {};
   Object.entries(CAMPOS_MEMO).forEach(([k, id]) => { d[k] = $m(id).value.trim(); });
+  d.conceptos = conceptosMarcados();
   d.montos = Array.from(contMontosMemo.querySelectorAll('.fila-actividad')).map(div => ({
     func: div.querySelector('.xFunc').value.trim(), det: div.querySelector('.xDet').value.trim(),
     monto: parseInt(div.querySelector('.xMonto').value, 10) || 0,
@@ -2269,6 +2299,7 @@ function recolectarMemo() {
 }
 function aplicarMemo(d) {
   Object.entries(CAMPOS_MEMO).forEach(([k, id]) => { $m(id).value = d[k] || ''; });
+  $m('mConceptos').querySelectorAll('input').forEach(i => { i.checked = (d.conceptos || []).includes(i.value); });
   contMontosMemo.innerHTML = '';
   (d.montos && d.montos.length ? d.montos : [{}]).forEach(x => agregarMontoMemo(x));
   validarMemo();
