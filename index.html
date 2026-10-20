@@ -42,7 +42,9 @@
   nav.tabs.top{max-width:none;background:#fff;border-bottom:1px solid var(--borde);}
   nav.tabs.top .tab-btn.activo{border-bottom-color:#ee4042;}
   nav.tabs.top .tab-btn{font-size:15px;}
-  #panelPost iframe{display:block;width:100%;height:calc(100vh - 110px);min-height:500px;border:0;background:#fff;}
+  nav.tabs.sub{max-width:none;background:#fafbfc;}
+  nav.tabs.sub .tab-btn{font-size:13px;}
+  #panelPost iframe{display:block;width:100%;height:calc(100vh - 160px);min-height:480px;border:0;background:#fff;}
   main{max-width:680px;margin:0 auto;padding:16px;}
   .card{background:#fff;border:1px solid var(--borde);border-radius:10px;padding:16px;margin-bottom:14px;}
   .card h2{font-size:14px;margin:0 0 10px;color:var(--nar-osc);}
@@ -86,7 +88,7 @@
 
 <header>
   <h1>🧭 Gestión de Terreno</h1>
-  <span class="ver">v6</span>
+  <span class="ver">v7</span>
 </header>
 
 <nav class="tabs top">
@@ -445,7 +447,80 @@
 </div>
 
 <div id="panelPost" style="display:none">
-  <iframe id="frameInforme" title="Informe de Cometido" data-src="informe/index.html"></iframe>
+  <nav class="tabs sub">
+    <button class="tab-btn activo" id="postBtnInforme" type="button">📝 Informe de Cometido</button>
+    <button class="tab-btn" id="postBtnRend" type="button">🧾 Rendición de Cuentas</button>
+  </nav>
+  <div id="postInforme">
+    <iframe id="frameInforme" title="Informe de Cometido" data-src="informe/index.html"></iframe>
+  </div>
+  <div id="postRend" style="display:none">
+  <main>
+    <div class="card">
+      <h2>Borrador</h2>
+      <div class="fila-botones">
+        <button class="btn secundario" id="btnGuardarBorradorRend" type="button">💾 Guardar borrador (.json)</button>
+        <button class="btn secundario" id="btnCargarBorradorRend" type="button">📂 Cargar borrador (.json)</button>
+        <button class="btn secundario" id="btnNuevaRend" type="button">🗑 Nueva rendición</button>
+        <input type="file" id="fileCargarBorradorRend" accept="application/json" style="display:none;">
+      </div>
+      <div class="aviso" id="avisoBorradorRend"></div>
+    </div>
+
+    <div class="card">
+      <h2>1. Datos de la rendición</h2>
+      <label for="rFuncionario">Nombre y apellido del funcionario que rinde</label>
+      <input type="text" id="rFuncionario">
+      <div class="grid3">
+        <div><label for="rMes">Gastos efectuados en el mes de</label>
+          <select id="rMes"><option value="">—</option></select></div>
+        <div><label for="rAnio">Año</label><input type="number" id="rAnio" min="2020" max="2100"></div>
+        <div><label for="rFechaRend">Fecha de la rendición</label><input type="date" id="rFechaRend"></div>
+      </div>
+      <div class="grid2">
+        <div><label for="rResolucion">Resolución Exenta N°</label><input type="text" id="rResolucion" placeholder="ej. 558"></div>
+        <div><label for="rFechaResol">De fecha</label><input type="date" id="rFechaResol"></div>
+      </div>
+      <label for="rImputacion">Del SERNAGEOMIN y cuya imputación es</label>
+      <input type="text" id="rImputacion" placeholder="Opcional">
+      <div class="grid2">
+        <div><label for="rChequeNum">Cheque(s) N°</label><input type="text" id="rChequeNum" placeholder="Opcional"></div>
+        <div><label for="rChequeFecha">De fecha(s)</label><input type="text" id="rChequeFecha" placeholder="Opcional"></div>
+      </div>
+      <label for="rTransferencia">o Transferencia electrónica</label>
+      <input type="text" id="rTransferencia" placeholder="Opcional (N° de operación, fecha)">
+    </div>
+
+    <div class="card">
+      <h2>2. Documentos con que rinde cuenta</h2>
+      <p class="nota">Hasta 5 documentos (boleta, factura o recibo). Adjunta los respaldos aparte.</p>
+      <div id="filasDocsRend"></div>
+      <div class="fila-botones" style="margin-top:10px;">
+        <button class="btn secundario" id="btnAgregarDocRend" type="button">+ Agregar documento</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>3. Fondos y reintegro</h2>
+      <label for="rFondos">Fondos asignados ($)</label>
+      <input type="number" id="rFondos" min="0" step="1" inputmode="numeric">
+      <label for="rReintegroDetalle">Reintegro: comprobante de depósito o transferencia</label>
+      <input type="text" id="rReintegroDetalle" placeholder="ej. Transferencia a Sernageomin">
+      <label for="rObs">Observaciones</label>
+      <textarea id="rObs" placeholder="Opcional"></textarea>
+      <div class="subtotal" id="rSubtotales"></div>
+    </div>
+
+    <div class="card">
+      <div class="error" id="erroresRend"></div>
+      <div class="fila-botones">
+        <button class="btn" id="btnGenerarExcelRend" type="button" disabled>Generar rendición (.xlsx)</button>
+      </div>
+      <div class="aviso" id="avisoExcelRend"></div>
+      <p class="nota">La planilla sale sin firmas: imprime, firma y adjunta los respaldos.</p>
+    </div>
+  </main>
+  </div>
 </div>
 
 <footer>
@@ -553,12 +628,24 @@ tabBtnFicha.addEventListener('click', () => {
   const bPre = document.getElementById('topBtnPre'), bPost = document.getElementById('topBtnPost');
   const pPre = document.getElementById('panelPre'), pPost = document.getElementById('panelPost');
   const fr = document.getElementById('frameInforme');
+  function cargarInforme() { if (!fr.getAttribute('src') && document.getElementById('postInforme').style.display !== 'none') fr.setAttribute('src', fr.dataset.src); }
+  const bI = document.getElementById('postBtnInforme'), bR = document.getElementById('postBtnRend');
+  function sub(rend) {
+    document.getElementById('postInforme').style.display = rend ? 'none' : '';
+    document.getElementById('postRend').style.display = rend ? '' : 'none';
+    bI.classList.toggle('activo', !rend); bR.classList.toggle('activo', rend);
+    if (!rend) cargarInforme();
+    try { sessionStorage.setItem('gt-sub', rend ? 'rend' : 'inf'); } catch (e) { }
+  }
+  bI.addEventListener('click', () => sub(false));
+  bR.addEventListener('click', () => sub(true));
+  try { if (sessionStorage.getItem('gt-sub') === 'rend') sub(true); } catch (e) { }
   function ir(post) {
     pPre.style.display = post ? 'none' : '';
     pPost.style.display = post ? '' : 'none';
     bPre.classList.toggle('activo', !post);
     bPost.classList.toggle('activo', post);
-    if (post && !fr.getAttribute('src')) fr.setAttribute('src', fr.dataset.src);
+    if (post) cargarInforme();
     try { sessionStorage.setItem('gt-top', post ? 'post' : 'pre'); } catch (e) { }
   }
   bPre.addEventListener('click', () => ir(false));
@@ -1863,6 +1950,159 @@ if (estadoGuardadoFicha) {
   agregarParticipante();
 }
 validarFicha();
+
+// ============================================================
+// RENDICIÓN DE CUENTAS (post-terreno) — formulario → planilla .xlsx oficial
+// ============================================================
+const MAX_DOCS_REND = 5;
+const LS_KEY_REND = 'borrador_rendicion_v1';
+const LS_KEY_REND_FUNC = 'rendicion_funcionario_v1';
+const MESES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+const contDocsRend = document.getElementById('filasDocsRend');
+const $r = id => document.getElementById(id);
+$r('rMes').innerHTML = '<option value="">—</option>' + MESES.map(m => `<option>${m}</option>`).join('');
+
+function agregarDocRend(d) {
+  if (contDocsRend.querySelectorAll('.fila-actividad').length >= MAX_DOCS_REND) return;
+  const div = document.createElement('div');
+  div.className = 'fila-actividad';
+  div.innerHTML = `
+    <span class="num"></span>
+    <button type="button" class="quitar">✕ quitar</button>
+    <div class="grid2">
+      <div><label>Boleta o recibo N°</label><input type="text" class="dNum"></div>
+      <div><label>Valor ($)</label><input type="number" class="dVal" min="0" step="1" inputmode="numeric"></div>
+    </div>
+    <label>Nombre del proveedor o prestador del servicio</label><input type="text" class="dProv">
+    <label>Materia</label><input type="text" class="dMat" placeholder="ej. Arriendo de 4 caballos por 4 días">`;
+  contDocsRend.appendChild(div);
+  if (d) {
+    div.querySelector('.dNum').value = d.num || ''; div.querySelector('.dVal').value = d.val || '';
+    div.querySelector('.dProv').value = d.prov || ''; div.querySelector('.dMat').value = d.mat || '';
+  }
+  div.querySelectorAll('input').forEach(el => el.addEventListener('input', validarRend));
+  div.querySelector('.quitar').addEventListener('click', () => { div.remove(); renumerarDocsRend(); validarRend(); });
+  renumerarDocsRend();
+}
+function renumerarDocsRend() {
+  const filas = contDocsRend.querySelectorAll('.fila-actividad');
+  filas.forEach((div, i) => { div.querySelector('.num').textContent = `Documento ${i + 1}`; });
+  $r('btnAgregarDocRend').disabled = filas.length >= MAX_DOCS_REND;
+}
+$r('btnAgregarDocRend').addEventListener('click', () => { agregarDocRend(); validarRend(); });
+
+function recolectarRend() {
+  return {
+    funcionario: $r('rFuncionario').value.trim(), mes: $r('rMes').value, anio: $r('rAnio').value,
+    fechaRend: $r('rFechaRend').value, resolucion: $r('rResolucion').value.trim(), fechaResol: $r('rFechaResol').value,
+    imputacion: $r('rImputacion').value.trim(), chequeNum: $r('rChequeNum').value.trim(), chequeFecha: $r('rChequeFecha').value.trim(),
+    transferencia: $r('rTransferencia').value.trim(), fondos: parseInt($r('rFondos').value, 10) || 0,
+    reintegroDetalle: $r('rReintegroDetalle').value.trim(), obs: $r('rObs').value.trim(),
+    docs: Array.from(contDocsRend.querySelectorAll('.fila-actividad')).map(div => ({
+      num: div.querySelector('.dNum').value.trim(), val: parseInt(div.querySelector('.dVal').value, 10) || 0,
+      prov: div.querySelector('.dProv').value.trim(), mat: div.querySelector('.dMat').value.trim(),
+    })).filter(d => d.num || d.prov || d.mat || d.val),
+  };
+}
+function aplicarRend(d) {
+  $r('rFuncionario').value = d.funcionario || ''; $r('rMes').value = d.mes || ''; $r('rAnio').value = d.anio || '';
+  $r('rFechaRend').value = d.fechaRend || ''; $r('rResolucion').value = d.resolucion || ''; $r('rFechaResol').value = d.fechaResol || '';
+  $r('rImputacion').value = d.imputacion || ''; $r('rChequeNum').value = d.chequeNum || ''; $r('rChequeFecha').value = d.chequeFecha || '';
+  $r('rTransferencia').value = d.transferencia || ''; $r('rFondos').value = d.fondos || '';
+  $r('rReintegroDetalle').value = d.reintegroDetalle || ''; $r('rObs').value = d.obs || '';
+  contDocsRend.innerHTML = '';
+  (d.docs && d.docs.length ? d.docs : [{}]).forEach(x => agregarDocRend(x));
+  validarRend();
+}
+function totalesRend(d) {
+  const gastos = d.docs.reduce((a, x) => a + x.val, 0);
+  return { gastos, reintegro: Math.max(0, d.fondos - gastos), exceso: Math.max(0, gastos - d.fondos) };
+}
+function validarRend() {
+  const d = recolectarRend(), t = totalesRend(d), err = [];
+  if (!d.funcionario) err.push('Falta el nombre del funcionario.');
+  if (!d.mes || !d.anio) err.push('Falta el mes y el año de los gastos.');
+  if (!d.resolucion) err.push('Falta el N° de la resolución exenta.');
+  if (!d.docs.length) err.push('Agrega al menos un documento.');
+  else if (d.docs.some(x => !x.val || !x.prov)) err.push('Cada documento necesita proveedor y valor.');
+  if (!d.fondos) err.push('Falta el monto de fondos asignados.');
+  $r('erroresRend').textContent = err[0] || '';
+  $r('btnGenerarExcelRend').disabled = err.length > 0;
+  $r('rSubtotales').innerHTML = `Gastos efectuados: <b>$${clp(t.gastos)}</b> · Fondos asignados: <b>$${clp(d.fondos)}</b> · A reintegrar: <b>$${clp(t.reintegro)}</b>` +
+    (t.exceso ? `<br><span style="color:var(--err)">Los gastos superan los fondos asignados en $${clp(t.exceso)}.</span>` : '');
+  guardarBorradorLS(LS_KEY_REND, d);
+  if (d.funcionario) { try { localStorage.setItem(LS_KEY_REND_FUNC, d.funcionario); } catch (e) {} }
+  return err.length === 0;
+}
+['rFuncionario','rMes','rAnio','rFechaRend','rResolucion','rFechaResol','rImputacion','rChequeNum','rChequeFecha',
+ 'rTransferencia','rFondos','rReintegroDetalle','rObs'].forEach(id => { $r(id).addEventListener('input', validarRend); $r(id).addEventListener('change', validarRend); });
+
+async function generarExcelRend(d) {
+  const resp = await fetch('assets/plantilla_rendicion_cuentas.xlsx');
+  if (!resp.ok) throw new Error('No se pudo cargar la plantilla (assets/plantilla_rendicion_cuentas.xlsx).');
+  const zip = await JSZip.loadAsync(await resp.arrayBuffer());
+  const t = totalesRend(d);
+  const rep = {
+    FUNCIONARIO: d.funcionario, MES: d.mes, ANIO: d.anio, RESOLUCION: d.resolucion,
+    FECHA_RESOLUCION: formatearFechaDMY(d.fechaResol), IMPUTACION: d.imputacion,
+    CHEQUE_NUM: d.chequeNum, CHEQUE_FECHA: d.chequeFecha, TRANSFERENCIA: d.transferencia,
+    VALOR_RINDE: clp(t.gastos), FONDOS: clp(d.fondos), GASTOS: clp(t.gastos),
+    REINTEGRO_DETALLE: d.reintegroDetalle, REINTEGRO: clp(t.reintegro), OBSERVACIONES: d.obs,
+    TOTAL: '$ ' + clp(t.gastos), FECHA_RENDICION: formatearFechaDMY(d.fechaRend),
+  };
+  for (let i = 1; i <= MAX_DOCS_REND; i++) {
+    const x = d.docs[i - 1] || {};
+    rep[`D${i}_NUM`] = x.num || ''; rep[`D${i}_PROV`] = x.prov || ''; rep[`D${i}_MAT`] = x.mat || '';
+    rep[`D${i}_VAL`] = x.val ? '$ ' + clp(x.val) : '';
+  }
+  for (const p of Object.keys(zip.files).filter(p => /^xl\/worksheets\/sheet\d+\.xml$/.test(p))) {
+    let xml = await zip.file(p).async('string');
+    xml = xml.replace(/@@([A-Za-z0-9_]+)@@/g, (m, tok) => (tok in rep) ? escXml(rep[tok]) : '');
+    zip.file(p, xml);
+  }
+  return zip.generateAsync({ type: 'blob', compression: 'DEFLATE',
+    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+}
+$r('btnGenerarExcelRend').addEventListener('click', async () => {
+  if (!validarRend()) return;
+  const d = recolectarRend(), aviso = $r('avisoExcelRend');
+  aviso.textContent = 'Generando rendición…';
+  try {
+    const blob = await generarExcelRend(d);
+    const nombre = `Rendicion de cuentas ${d.funcionario} ${d.mes} ${d.anio}.xlsx`;
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = nombre;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    aviso.textContent = `Planilla descargada: ${nombre}.`;
+  } catch (e) { aviso.textContent = 'No se pudo generar la planilla: ' + e.message; }
+});
+$r('btnGuardarBorradorRend').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify(recolectarRend(), null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = `Borrador rendicion ${hoyISO()}.json`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  $r('avisoBorradorRend').textContent = 'Borrador descargado.';
+});
+$r('btnCargarBorradorRend').addEventListener('click', () => $r('fileCargarBorradorRend').click());
+$r('fileCargarBorradorRend').addEventListener('change', async (e) => {
+  const file = e.target.files[0]; if (!file) return;
+  try { aplicarRend(JSON.parse(await file.text())); $r('avisoBorradorRend').textContent = `Borrador cargado: ${file.name}`; }
+  catch (err) { $r('avisoBorradorRend').textContent = 'No se pudo leer el archivo: ' + err.message; }
+  e.target.value = '';
+});
+function funcionarioGuardado() { try { return localStorage.getItem(LS_KEY_REND_FUNC) || ''; } catch (e) { return ''; } }
+$r('btnNuevaRend').addEventListener('click', () => {
+  if (!confirm('¿Borrar la rendición actual y empezar una nueva?')) return;
+  try { localStorage.removeItem(LS_KEY_REND); } catch (e) {}
+  aplicarRend({ funcionario: funcionarioGuardado(), anio: new Date().getFullYear(), fechaRend: hoyISO() });
+});
+(function () {
+  const g = cargarBorradorLS(LS_KEY_REND);
+  if (g) { aplicarRend(g); $r('avisoBorradorRend').textContent = 'Se restauró tu borrador anterior automáticamente.'; }
+  else aplicarRend({ funcionario: funcionarioGuardado(), anio: new Date().getFullYear(), fechaRend: hoyISO() });
+})();
 
 // ============================================================
 // PWA: registro del service worker
