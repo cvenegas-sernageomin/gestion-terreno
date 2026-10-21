@@ -237,4 +237,10 @@ $('#bWord').onclick = () => exportar().catch(e => { console.error(e); toast('Err
 try { const g = JSON.parse(localStorage.getItem(LS) || 'null'); if (g) S = Object.assign(vacio(), g); } catch (e) { }
 render();
 
+/* El Asistente de Gestión Terreno puede entregar datos leídos de la resolución (mismo origen). */
+window.addEventListener('message', e => {
+  if (e.origin !== location.origin || !e.data || e.data.tipo !== 'gt-informe' || typeof e.data.datos !== 'object') return;
+  S = Object.assign(vacio(), S, e.data.datos); render(); guardar(); toast('Datos cargados por el Asistente');
+});
+
 window.__S = () => S; window.__exportar = exportar;

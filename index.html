@@ -44,6 +44,9 @@
   nav.tabs.top .tab-btn{font-size:15px;}
   nav.tabs.sub{max-width:none;background:#fafbfc;}
   nav.tabs.sub .tab-btn{font-size:13px;}
+  .asist-tabla{width:100%;border-collapse:collapse;font-size:12px;}
+  .asist-tabla th,.asist-tabla td{border-bottom:1px solid var(--borde);padding:4px 6px;text-align:left;vertical-align:top;}
+  .asist-tabla th{color:#666;font-weight:600;}
   #panelPost iframe{display:block;width:100%;height:calc(100vh - 160px);min-height:480px;border:0;background:#fff;}
   main{max-width:680px;margin:0 auto;padding:16px;}
   .card{background:#fff;border:1px solid var(--borde);border-radius:10px;padding:16px;margin-bottom:14px;}
@@ -88,12 +91,13 @@
 
 <header>
   <h1>🧭 Gestión Terreno</h1>
-  <span class="ver">v11</span>
+  <span class="ver">v12</span>
 </header>
 
 <nav class="tabs top">
   <button class="tab-btn activo" id="topBtnPre" type="button">🎒 Pre-terreno</button>
   <button class="tab-btn" id="topBtnPost" type="button">📝 Post-terreno</button>
+  <button class="tab-btn" id="topBtnAsist" type="button">🤖 Asistente</button>
 </nav>
 
 <div id="panelPre">
@@ -632,6 +636,53 @@
   </div>
 </div>
 
+<div id="panelAsist" style="display:none">
+<main>
+  <div class="card" id="asistCardDocs">
+    <h2>1. Documentos del terreno</h2>
+    <p class="nota">Elige la carpeta del terreno (o varias, una tras otra) con la <b>resolución de cometido</b> y las <b>boletas y facturas</b> en PDF.
+      Los documentos se leen en este equipo y <b>no se suben a ningún lado</b>. Sirve con carpetas de SharePoint/OneDrive sincronizadas. También puedes arrastrar PDFs aquí.</p>
+    <div class="fila-botones">
+      <button class="btn" id="asistBtnCarpeta" type="button">📁 Elegir carpeta</button>
+      <button class="btn secundario" id="asistBtnArchivos" type="button">📄 Elegir archivos</button>
+      <button class="btn secundario" id="asistBtnLimpiar" type="button">🗑 Limpiar</button>
+      <input type="file" id="asistFile" accept="application/pdf,.pdf" multiple style="display:none;">
+    </div>
+    <div class="aviso" id="asistEstado"></div>
+    <ul id="asistDocs" style="margin:8px 0 0;padding-left:18px;font-size:13px;"></ul>
+    <div class="aviso warn" id="asistEscaneados" style="display:none"></div>
+  </div>
+
+  <div class="card">
+    <h2>2. Cometido y persona</h2>
+    <label for="asistCometido">Resolución</label>
+    <select id="asistCometido"></select>
+    <label for="asistYo">¿Quién eres?</label>
+    <select id="asistYo"></select>
+    <p class="nota">Si hay modificatorias, se usan las fechas más recientes. Tu elección se recuerda en este navegador.</p>
+  </div>
+
+  <div class="card">
+    <h2>3. Qué llenar</h2>
+    <div class="checks">
+      <label><input type="checkbox" id="asistChkRend" checked> Rendición de cuentas</label>
+      <label><input type="checkbox" id="asistChkMemo" checked> Memo de fondos a rendir</label>
+      <label><input type="checkbox" id="asistChkInf" checked> Informe de cometido</label>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>4. Revisión</h2>
+    <p class="nota">Desmarca lo que no quieras aplicar. Nada se escribe en los formularios hasta que pulses «Aplicar».</p>
+    <div id="asistRevision"></div>
+    <div class="fila-botones" style="margin-top:12px;">
+      <button class="btn" id="asistBtnAplicar" type="button" disabled>Aplicar a los formularios</button>
+    </div>
+    <div id="asistResultado" style="margin-top:10px;"></div>
+  </div>
+</main>
+</div>
+
 <footer>
   El botón "Generar planilla" descarga la planilla oficial ya rellenada. El botón "Abrir correo"
   abre tu cliente de correo con el resumen — recuerda ADJUNTAR el archivo descargado antes de
@@ -742,17 +793,30 @@ PESTANAS_PRE.forEach(([b, p]) => {
   bI.addEventListener('click', () => sub(false));
   bR.addEventListener('click', () => sub(true));
   try { if (sessionStorage.getItem('gt-sub') === 'rend') sub(true); } catch (e) { }
-  function ir(post) {
-    pPre.style.display = post ? 'none' : '';
-    pPost.style.display = post ? '' : 'none';
-    bPre.classList.toggle('activo', !post);
-    bPost.classList.toggle('activo', post);
-    if (post) cargarInforme();
-    try { sessionStorage.setItem('gt-top', post ? 'post' : 'pre'); } catch (e) { }
+  const bAs = document.getElementById('topBtnAsist'), pAs = document.getElementById('panelAsist');
+  let asistCargado = false;
+  function cargarAsistente() {
+    if (asistCargado) return; asistCargado = true;
+    const cargar = (src) => new Promise((ok, mal) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = () => mal(new Error(src)); document.head.appendChild(s); });
+    cargar('vendor/pdf.min.js').then(() => cargar('asistente/texto.js')).then(() => cargar('asistente/resolucion.js'))
+      .then(() => cargar('asistente/boletas.js')).then(() => cargar('asistente/mapeo.js')).then(() => cargar('asistente/ui.js'))
+      .catch(e => { asistCargado = false; document.getElementById('asistEstado').textContent = 'No se pudo cargar el módulo: ' + e.message; });
   }
-  bPre.addEventListener('click', () => ir(false));
-  bPost.addEventListener('click', () => ir(true));
-  try { if (sessionStorage.getItem('gt-top') === 'post') ir(true); } catch (e) { }
+  function ir(cual) {   // 'pre' | 'post' | 'asist'
+    pPre.style.display = cual === 'pre' ? '' : 'none';
+    pPost.style.display = cual === 'post' ? '' : 'none';
+    pAs.style.display = cual === 'asist' ? '' : 'none';
+    bPre.classList.toggle('activo', cual === 'pre');
+    bPost.classList.toggle('activo', cual === 'post');
+    bAs.classList.toggle('activo', cual === 'asist');
+    if (cual === 'post') cargarInforme();
+    if (cual === 'asist') cargarAsistente();
+    try { sessionStorage.setItem('gt-top', cual); } catch (e) { }
+  }
+  bPre.addEventListener('click', () => ir('pre'));
+  bPost.addEventListener('click', () => ir('post'));
+  bAs.addEventListener('click', () => ir('asist'));
+  try { const t = sessionStorage.getItem('gt-top'); if (t === 'post' || t === 'asist') ir(t); } catch (e) { }
 })();
 
 // ============================================================
