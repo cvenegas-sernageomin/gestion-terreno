@@ -91,7 +91,7 @@
 
 <header>
   <h1>🧭 Gestión Terreno</h1>
-  <span class="ver">v12</span>
+  <span class="ver">v13</span>
 </header>
 
 <nav class="tabs top">
@@ -99,6 +99,11 @@
   <button class="tab-btn" id="topBtnPost" type="button">📝 Post-terreno</button>
   <button class="tab-btn" id="topBtnAsist" type="button">🤖 Asistente</button>
 </nav>
+<div id="barraSalida" style="background:#fafbfc;border-bottom:1px solid var(--borde);padding:6px 16px;font-size:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center;">
+  <span>💾 Guardar los archivos en: <b id="salidaNombre">Descargas del navegador</b></span>
+  <button class="btn secundario" id="btnSalidaElegir" type="button" style="padding:4px 10px;font-size:12px;">📂 Elegir carpeta</button>
+  <button class="btn secundario" id="btnSalidaQuitar" type="button" style="padding:4px 10px;font-size:12px;display:none;">Usar Descargas</button>
+</div>
 
 <div id="panelPre">
 
@@ -819,6 +824,69 @@ PESTANAS_PRE.forEach(([b, p]) => {
   try { const t = sessionStorage.getItem('gt-top'); if (t === 'post' || t === 'asist') ir(t); } catch (e) { }
 })();
 
+
+// ============================================================
+// Guardado directo en una carpeta del PC (File System Access API) con respaldo a «Descargas»
+// ============================================================
+let salidaDir = null;   // FileSystemDirectoryHandle elegido por el usuario (se recuerda en IndexedDB)
+function gtDb() {
+  return new Promise((ok, mal) => {
+    const r = indexedDB.open('gt-salida', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('h');
+    r.onsuccess = () => ok(r.result); r.onerror = () => mal(r.error);
+  });
+}
+async function gtGet(k) { const db = await gtDb(); return new Promise((ok, mal) => { const q = db.transaction('h').objectStore('h').get(k); q.onsuccess = () => ok(q.result); q.onerror = () => mal(q.error); }); }
+async function gtSet(k, v) { const db = await gtDb(); return new Promise((ok, mal) => { const t = db.transaction('h', 'readwrite'); if (v == null) t.objectStore('h').delete(k); else t.objectStore('h').put(v, k); t.oncomplete = ok; t.onerror = () => mal(t.error); }); }
+function actualizarSalidaUI() {
+  const el = document.getElementById('salidaNombre'); if (!el) return;
+  el.textContent = salidaDir ? salidaDir.name : 'Descargas del navegador';
+  document.getElementById('btnSalidaQuitar').style.display = salidaDir ? '' : 'none';
+  document.getElementById('btnSalidaElegir').textContent = salidaDir ? 'Cambiar carpeta' : '📂 Elegir carpeta';
+}
+async function permisoSalida() {
+  if (!salidaDir) return false;
+  const o = { mode: 'readwrite' };
+  if ((await salidaDir.queryPermission(o)) === 'granted') return true;
+  return (await salidaDir.requestPermission(o)) === 'granted';   // pide permiso una vez por sesión (requiere un clic reciente)
+}
+async function nombreLibre(dir, nombre) {
+  const i = nombre.lastIndexOf('.'), base = i > 0 ? nombre.slice(0, i) : nombre, ext = i > 0 ? nombre.slice(i) : '';
+  for (let n = 1; n < 200; n++) {
+    const cand = n === 1 ? nombre : `${base} (${n})${ext}`;
+    try { await dir.getFileHandle(cand); } catch (e) { if (e.name === 'NotFoundError') return cand; throw e; }   // ya existe → probar el siguiente
+  }
+  return `${base} ${Date.now()}${ext}`;
+}
+/** Guarda el archivo en la carpeta elegida (sin diálogos) o, si no hay, lo descarga. Devuelve un texto para mostrar. */
+async function entregarArchivo(blob, nombre) {
+  if (salidaDir) {
+    try {
+      if (await permisoSalida()) {
+        const n = await nombreLibre(salidaDir, nombre);
+        const w = await (await salidaDir.getFileHandle(n, { create: true })).createWritable();
+        await w.write(blob); await w.close();
+        return `Guardado en «${salidaDir.name}»: ${n}`;
+      }
+    } catch (e) { console.warn('No se pudo guardar en la carpeta elegida; se descarga.', e); }
+  }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = nombre;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  return `Descargado: ${nombre}`;
+}
+(function () {
+  const bE = document.getElementById('btnSalidaElegir'), bQ = document.getElementById('btnSalidaQuitar');
+  if (!window.showDirectoryPicker) { bE.style.display = 'none'; document.getElementById('salidaNombre').textContent = 'Descargas del navegador (tu navegador no permite elegir carpeta)'; return; }
+  bE.addEventListener('click', async () => {
+    try { salidaDir = await window.showDirectoryPicker({ mode: 'readwrite', id: 'gt-salida', startIn: 'documents' }); await gtSet('salida', salidaDir); actualizarSalidaUI(); }
+    catch (e) { if (e.name !== 'AbortError') alert('No se pudo elegir la carpeta: ' + e.message); }
+  });
+  bQ.addEventListener('click', async () => { salidaDir = null; try { await gtSet('salida', null); } catch (e) { } actualizarSalidaUI(); });
+  gtGet('salida').then(h => { if (h) { salidaDir = h; actualizarSalidaUI(); } }).catch(() => { });
+})();
+
 // ============================================================
 // Utilidades
 // ============================================================
@@ -1140,12 +1208,8 @@ document.getElementById('btnGenerarExcel').addEventListener('click', async () =>
   try {
     const blob = await generarExcel(d);
     nombreArchivoGenerado = `Solicitud camioneta ${d.fechaInicio}_a_${d.fechaTermino}.xlsx`;
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = nombreArchivoGenerado;
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-    avisoExcel.textContent = `Planilla descargada: ${nombreArchivoGenerado}. Ahora abre el correo y adjúntala antes de enviar.`;
+    const dest = await entregarArchivo(blob, nombreArchivoGenerado);
+    avisoExcel.textContent = `${dest}. Ahora abre el correo y adjúntala antes de enviar.`;
     document.getElementById('btnAbrirCorreo').disabled = false;
   } catch (e) {
     avisoExcel.textContent = 'No se pudo generar la planilla: ' + e.message;
@@ -1777,12 +1841,8 @@ document.getElementById('btnGenerarExcelFicha').addEventListener('click', async 
   try {
     const blob = await generarExcelFicha(d);
     nombreArchivoFichaGenerado = `Ficha terreno ${d.ciudadDestino || 'cometido'} ${d.fechaElab || hoyISO()}.xlsx`;
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = nombreArchivoFichaGenerado;
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-    aviso.textContent = `Planilla descargada: ${nombreArchivoFichaGenerado}. Ahora abre el correo y adjúntala antes de enviar.`;
+    const dest = await entregarArchivo(blob, nombreArchivoFichaGenerado);
+    aviso.textContent = `${dest}. Ahora abre el correo y adjúntala antes de enviar.`;
     document.getElementById('btnAbrirCorreoFicha').disabled = false;
   } catch (e) {
     aviso.textContent = 'No se pudo generar la planilla: ' + e.message;
@@ -1868,12 +1928,7 @@ const autoguardarCamioneta = debounce(() => guardarBorradorLS(LS_KEY_CAMIONETA, 
 
 document.getElementById('btnGuardarBorradorCam').addEventListener('click', () => {
   const blob = new Blob([JSON.stringify(obtenerEstadoCamioneta(), null, 2)], { type: 'application/json' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `Borrador camioneta ${hoyISO()}.json`;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-  document.getElementById('avisoBorradorCam').textContent = 'Borrador descargado.';
+  entregarArchivo(blob, `Borrador camioneta ${hoyISO()}.json`).then(m => { document.getElementById('avisoBorradorCam').textContent = m; });
 });
 document.getElementById('btnCargarBorradorCam').addEventListener('click', () => document.getElementById('fileCargarBorradorCam').click());
 document.getElementById('fileCargarBorradorCam').addEventListener('change', async (e) => {
@@ -1986,12 +2041,7 @@ const autoguardarFicha = debounce(() => guardarBorradorLS(LS_KEY_FICHA, obtenerE
 
 document.getElementById('btnGuardarBorradorFicha').addEventListener('click', () => {
   const blob = new Blob([JSON.stringify(obtenerEstadoFicha(), null, 2)], { type: 'application/json' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `Borrador ficha terreno ${hoyISO()}.json`;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-  document.getElementById('avisoBorradorFicha').textContent = 'Borrador descargado.';
+  entregarArchivo(blob, `Borrador ficha terreno ${hoyISO()}.json`).then(m => { document.getElementById('avisoBorradorFicha').textContent = m; });
 });
 document.getElementById('btnCargarBorradorFicha').addEventListener('click', () => document.getElementById('fileCargarBorradorFicha').click());
 document.getElementById('fileCargarBorradorFicha').addEventListener('change', async (e) => {
@@ -2098,13 +2148,9 @@ function refrescarSelectsDesdeNomina() {
 document.getElementById('btnAgregarNomina').addEventListener('click', () => { agregarFilaNomina(); guardarNominaLS(); });
 document.getElementById('btnExportarNomina').addEventListener('click', () => {
   const blob = new Blob([JSON.stringify(recolectarNomina(), null, 2)], { type: 'application/json' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `Nomina privada conductores ${hoyISO()}.json`;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-  document.getElementById('avisoNomina').textContent =
-    'Nómina exportada. Guárdala tú en un lugar privado — NO la subas al repositorio de GitHub.';
+  entregarArchivo(blob, `Nomina privada conductores ${hoyISO()}.json`).then(m => {
+    document.getElementById('avisoNomina').textContent = m + '. Guárdala en un lugar privado — NO la subas al repositorio de GitHub.';
+  });
 });
 document.getElementById('btnImportarNomina').addEventListener('click', () => document.getElementById('fileImportarNomina').click());
 document.getElementById('fileImportarNomina').addEventListener('change', async (e) => {
@@ -2320,20 +2366,13 @@ $r('btnGenerarExcelRend').addEventListener('click', async () => {
   try {
     const blob = await generarExcelRend(d);
     const nombre = `Rendicion de cuentas ${d.funcionario} ${d.mes} ${d.anio}.xlsx`;
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob); a.download = nombre;
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-    aviso.textContent = `Planilla descargada: ${nombre}.`;
+    const dest = await entregarArchivo(blob, nombre);
+    aviso.textContent = `${dest}.`;
   } catch (e) { aviso.textContent = 'No se pudo generar la planilla: ' + e.message; }
 });
 $r('btnGuardarBorradorRend').addEventListener('click', () => {
   const blob = new Blob([JSON.stringify(recolectarRend(), null, 2)], { type: 'application/json' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob); a.download = `Borrador rendicion ${hoyISO()}.json`;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-  $r('avisoBorradorRend').textContent = 'Borrador descargado.';
+  entregarArchivo(blob, `Borrador rendicion ${hoyISO()}.json`).then(m => { $r('avisoBorradorRend').textContent = m; });
 });
 $r('btnCargarBorradorRend').addEventListener('click', () => $r('fileCargarBorradorRend').click());
 $r('fileCargarBorradorRend').addEventListener('change', async (e) => {
@@ -2544,20 +2583,13 @@ $m('btnGenerarMemo').addEventListener('click', async () => {
   try {
     const blob = await generarMemoDocx(d);
     const nombre = `Memo fondos a rendir ${d.funcNombre} ${d.fecha || hoyISO()}.docx`;
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob); a.download = nombre;
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-    aviso.textContent = `Memo descargado: ${nombre}. Revísalo en Word antes de firmar.`;
+    const dest = await entregarArchivo(blob, nombre);
+    aviso.textContent = `${dest}. Revísalo en Word antes de firmar.`;
   } catch (e) { aviso.textContent = 'No se pudo generar el memo: ' + e.message; }
 });
 $m('btnGuardarBorradorMemo').addEventListener('click', () => {
   const blob = new Blob([JSON.stringify(recolectarMemo(), null, 2)], { type: 'application/json' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob); a.download = `Borrador memo fondos ${hoyISO()}.json`;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-  $m('avisoBorradorMemo').textContent = 'Borrador descargado.';
+  entregarArchivo(blob, `Borrador memo fondos ${hoyISO()}.json`).then(m => { $m('avisoBorradorMemo').textContent = m; });
 });
 $m('btnCargarBorradorMemo').addEventListener('click', () => $m('fileCargarBorradorMemo').click());
 $m('fileCargarBorradorMemo').addEventListener('change', async (e) => {
