@@ -91,7 +91,7 @@
 
 <header>
   <h1>🧭 Gestión Terreno</h1>
-  <span class="ver">v13</span>
+  <span class="ver">v14</span>
 </header>
 
 <nav class="tabs top">
@@ -886,6 +886,60 @@ async function entregarArchivo(blob, nombre) {
   bQ.addEventListener('click', async () => { salidaDir = null; try { await gtSet('salida', null); } catch (e) { } actualizarSalidaUI(); });
   gtGet('salida').then(h => { if (h) { salidaDir = h; actualizarSalidaUI(); } }).catch(() => { });
 })();
+
+
+// ============================================================
+// Números y fórmulas reales en los .xlsx generados (formato moneda $ y SUMA/fórmulas vivas)
+// ============================================================
+/** defs: { TOKEN: { v: número|null, f?: (ref)=>'FÓRMULA', money?: bool } }  — se aplica ANTES de reemplazar los tokens de texto. */
+async function numerosXlsx(zip, xml, defs) {
+  const celdas = {};   // token -> { ref, s }
+  const reCelda = /<c r="([A-Z]+\d+)"((?:\s+[a-z]+="[^"]*")*?)\s+t="inlineStr"[^>]*><is><t[^>]*>@@([A-Za-z0-9_]+)@@<\/t><\/is><\/c>/g;
+  let m;
+  while ((m = reCelda.exec(xml))) { const sm = /\ss="(\d+)"/.exec(m[2]); celdas[m[3]] = { ref: m[1], s: sm ? +sm[1] : 0 }; }
+  const ref = t => (celdas[t] ? celdas[t].ref : undefined);
+
+  // estilo con formato peso: se clona el estilo de cada celda con numFmt «$ #,##0»
+  const stXml = await zip.file('xl/styles.xml').async('string');
+  const st = new DOMParser().parseFromString(stXml, 'application/xml');
+  const NS = st.documentElement.namespaceURI;
+  let numFmts = st.getElementsByTagName('numFmts')[0];
+  if (!numFmts) { numFmts = st.createElementNS(NS, 'numFmts'); st.documentElement.insertBefore(numFmts, st.documentElement.firstChild); }
+  const FMT_ID = 190;
+  const nf = st.createElementNS(NS, 'numFmt'); nf.setAttribute('numFmtId', String(FMT_ID)); nf.setAttribute('formatCode', '"$"\\ #,##0'); numFmts.appendChild(nf);
+  numFmts.setAttribute('count', String(numFmts.getElementsByTagName('numFmt').length));
+  const xfs = st.getElementsByTagName('cellXfs')[0];
+  const cache = {};
+  const estiloMoneda = s0 => {
+    if (cache[s0] != null) return cache[s0];
+    const nuevo = xfs.getElementsByTagName('xf')[s0].cloneNode(true);
+    nuevo.setAttribute('numFmtId', String(FMT_ID)); nuevo.setAttribute('applyNumberFormat', '1');
+    xfs.appendChild(nuevo);
+    const idx = xfs.getElementsByTagName('xf').length - 1; xfs.setAttribute('count', String(idx + 1));
+    return (cache[s0] = idx);
+  };
+
+  Object.keys(defs).forEach(tok => {
+    const c = celdas[tok]; if (!c) return;
+    const d = defs[tok];
+    const estilo = d.money ? estiloMoneda(c.s) : c.s;
+    const f = d.f ? d.f(ref) : null;
+    let nuevo;
+    if (d.v == null && !f) nuevo = `<c r="${c.ref}" s="${c.s}"/>`;
+    else nuevo = `<c r="${c.ref}" s="${estilo}">${f ? `<f>${escXml(f)}</f>` : ''}${d.v != null ? `<v>${d.v}</v>` : ''}</c>`;
+    const re = new RegExp(`<c r="${c.ref}"[^>]*t="inlineStr"[^>]*><is><t[^>]*>@@${tok}@@</t></is></c>`);
+    xml = xml.replace(re, () => nuevo);
+  });
+  zip.file('xl/styles.xml', new XMLSerializer().serializeToString(st));
+  // que Excel recalcule al abrir
+  const wbf = zip.file('xl/workbook.xml');
+  if (wbf) {
+    let wb = await wbf.async('string');
+    wb = /<calcPr[^>]*\/>/.test(wb) ? wb.replace(/<calcPr[^>]*\/>/, '<calcPr calcId="191029" fullCalcOnLoad="1"/>') : wb.replace('</workbook>', '<calcPr calcId="191029" fullCalcOnLoad="1"/></workbook>');
+    zip.file('xl/workbook.xml', wb);
+  }
+  return xml;
+}
 
 // ============================================================
 // Utilidades
@@ -1811,16 +1865,49 @@ function construirReemplazosFicha(d) {
   return rep;
 }
 
+/** Viático y fondos de la ficha como números con formato $ y fórmulas (suma de filas, tarifa × días). */
+function defsNumericosFicha(d) {
+  const via = calcularViatico(d);
+  const defs = {};
+  const dias = (tok, v) => { defs[tok] = { v: v == null ? null : v }; };
+  const dinero = (tok, v, f) => { defs[tok] = { v: v == null ? null : v, money: true, f }; };
+  // profesionales: fila 1 con tokens fijos, filas 2..4 con VIA_Pn_*
+  const tk = (n, c) => (n === 1 ? `VIA_${c}33` : `VIA_P${n}_${c}`);
+  const nProf = via.filas.length;
+  for (let n = 1; n <= 4; n++) {
+    const f = via.filas[n - 1];
+    dias(tk(n, 'C'), f ? f.d100 : null); dias(tk(n, 'D'), f ? f.d40 : null);
+    dinero(tk(n, 'E'), f ? f.e100 : null, f ? (r => `${r(tk(n, 'C'))}*$O$${r('VIA_C33').replace(/\D/g, '')}`) : undefined);
+    dinero(tk(n, 'F'), f ? f.e40 : null, f ? (r => `${r(tk(n, 'D'))}*$P$${r('VIA_C33').replace(/\D/g, '')}`) : undefined);
+    dinero(tk(n, 'G'), f ? f.g : null, f ? (r => `${r(tk(n, 'E'))}+${r(tk(n, 'F'))}`) : undefined);
+  }
+  dias('VIA_C34', d.diasAdm100); dias('VIA_D34', d.diasAdm40);
+  dinero('VIA_E34', via.eAdm100, r => `${r('VIA_C34')}*$O$${r('VIA_C34').replace(/\D/g, '')}`);
+  dinero('VIA_F34', via.eAdm40, r => `${r('VIA_D34')}*$P$${r('VIA_C34').replace(/\D/g, '')}`);
+  dinero('VIA_G34', via.gAdm, r => `${r('VIA_E34')}+${r('VIA_F34')}`);
+  const suma = (c, tokTotal, v, money) => { const d1 = { v, money, f: r => { const a = r('VIA_C33'), b = r('VIA_C34'); const col = r(tokTotal).replace(/\d/g, ''); return `SUM(${col}${a.replace(/\D/g, '')}:${col}${b.replace(/\D/g, '')})`; } }; defs[tokTotal] = d1; };
+  suma('C', 'VIA_C35', via.totalDias100, false); suma('D', 'VIA_D35', via.totalDias40, false);
+  suma('E', 'VIA_E35', via.total100, true); suma('F', 'VIA_F35', via.total40, true); suma('G', 'VIA_G35', via.totalGeneral, true);
+  // fondos a rendir
+  const al = calcularAlarife(d), cb = calcularCaballos(d);
+  dinero('FONDOS_E38', d.imprevistos); dinero('FONDOS_E39', d.lavado); dinero('FONDOS_E40', d.peajes);
+  dinero('FONDOS_ALARIFE', al.liquido); dinero('FONDOS_CABALLOS', cb.total); dinero('FONDOS_E41', d.otroMonto);
+  dinero('FONDOS_E42', totalFondos(d), r => `SUM(${r('FONDOS_E38')}:${r('FONDOS_E41')})`);
+  return defs;
+}
+
 async function generarExcelFicha(d) {
   const resp = await fetch('assets/plantilla_ficha_terreno.xlsx');
   if (!resp.ok) throw new Error('No se pudo cargar la plantilla (assets/plantilla_ficha_terreno.xlsx).');
   const bytes = await resp.arrayBuffer();
   const zip = await JSZip.loadAsync(bytes);
   const rep = construirReemplazosFicha(d);
+  const defs = defsNumericosFicha(d);
 
   const sheetPaths = Object.keys(zip.files).filter(p => /^xl\/worksheets\/sheet\d+\.xml$/.test(p));
   for (const p of sheetPaths) {
     let xml = await zip.file(p).async('string');
+    if (p.endsWith('sheet1.xml')) xml = await numerosXlsx(zip, xml, defs);
     xml = xml.replace(/@@([A-Za-z0-9_]+)@@/g, (m, tok) => (tok in rep) ? escXml(rep[tok]) : '');
     zip.file(p, xml);
   }
@@ -2351,8 +2438,16 @@ async function generarExcelRend(d) {
     rep[`D${i}_NUM`] = x.num || ''; rep[`D${i}_PROV`] = x.prov || ''; rep[`D${i}_MAT`] = x.mat || '';
     rep[`D${i}_VAL`] = x.val ? '$ ' + clp(x.val) : '';
   }
+  // Montos como números con formato $ y totales con fórmulas reales
+  const defs = { FONDOS: { v: d.fondos, money: true } };
+  for (let i = 1; i <= MAX_DOCS_REND; i++) { const x = d.docs[i - 1]; defs[`D${i}_VAL`] = { v: x && x.val ? x.val : null, money: true }; }
+  defs.TOTAL = { v: t.gastos, money: true, f: r => `SUM(${r('D1_VAL')}:${r(`D${MAX_DOCS_REND}_VAL`)})` };
+  defs.GASTOS = { v: t.gastos, money: true, f: r => r('TOTAL') };
+  defs.VALOR_RINDE = { v: t.gastos, money: true, f: r => r('GASTOS') };
+  defs.REINTEGRO = { v: d.fondos - t.gastos, money: true, f: r => `${r('FONDOS')}-${r('GASTOS')}` };
   for (const p of Object.keys(zip.files).filter(p => /^xl\/worksheets\/sheet\d+\.xml$/.test(p))) {
     let xml = await zip.file(p).async('string');
+    if (p.endsWith('sheet1.xml')) xml = await numerosXlsx(zip, xml, defs);
     xml = xml.replace(/@@([A-Za-z0-9_]+)@@/g, (m, tok) => (tok in rep) ? escXml(rep[tok]) : '');
     zip.file(p, xml);
   }
