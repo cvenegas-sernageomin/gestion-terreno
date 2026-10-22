@@ -91,7 +91,7 @@
 
 <header>
   <h1>🧭 Gestión Terreno</h1>
-  <span class="ver">v14</span>
+  <span class="ver">v15</span>
 </header>
 
 <nav class="tabs top">
@@ -653,6 +653,17 @@
       <button class="btn secundario" id="asistBtnLimpiar" type="button">🗑 Limpiar</button>
       <input type="file" id="asistFile" accept="application/pdf,.pdf" multiple style="display:none;">
     </div>
+    <div id="asistRecordada" style="display:none;margin-top:10px;font-size:13px;">
+      📌 Carpeta recordada: <b id="asistRecNombre"></b>
+      <button class="btn secundario" id="asistBtnReleer" type="button" style="padding:4px 10px;font-size:12px;">↻ Leer de nuevo</button>
+      <button class="btn secundario" id="asistBtnOlvidar" type="button" style="padding:4px 10px;font-size:12px;">Olvidar</button>
+    </div>
+    <label for="asistUrl" style="margin-top:12px;">Enlace de la carpeta en SharePoint (opcional)</label>
+    <div class="fila-botones" style="flex-wrap:nowrap;">
+      <input type="text" id="asistUrl" placeholder="https://…sharepoint.com/sites/…/Documentos compartidos/…" style="flex:1;min-width:0;">
+      <button class="btn secundario" id="asistBtnAbrirSP" type="button" disabled>🔗 Abrir</button>
+    </div>
+    <p class="nota">Pega aquí el enlace para abrir la carpeta de SharePoint con un clic. Para que el Asistente lea sus archivos, la carpeta debe estar <b>sincronizada con OneDrive</b> (botón «Sincronizar» en SharePoint): se elige una sola vez con «Elegir carpeta» y queda recordada.</p>
     <div class="aviso" id="asistEstado"></div>
     <ul id="asistDocs" style="margin:8px 0 0;padding-left:18px;font-size:13px;"></ul>
     <div class="aviso warn" id="asistEscaneados" style="display:none"></div>

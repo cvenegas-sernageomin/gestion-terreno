@@ -55,7 +55,8 @@
   $('asistBtnCarpeta').addEventListener('click', async () => {
     if (!window.showDirectoryPicker) { aviso('Este navegador no permite elegir carpetas. Usa «Elegir archivos» (Chrome o Edge de escritorio sí lo permiten).'); return; }
     try {
-      const dir = await window.showDirectoryPicker({ mode: 'read' });
+      const dir = await window.showDirectoryPicker({ mode: 'read', id: 'gt-entrada' });
+      recordar(dir);
       const items = []; await listarDirectorio(dir, dir.name + '/', items, 0);
       if (items.length >= MAX_ARCHIVOS) aviso(`Se leerán solo los primeros ${MAX_ARCHIVOS} PDF; elige una carpeta más específica.`);
       await leerArchivos(items);
@@ -202,6 +203,34 @@
     if (!fr.getAttribute('src')) fr.setAttribute('src', fr.dataset.src);
   }
   $('frameInforme').addEventListener('load', () => { $('frameInforme').dataset.ok = '1'; });
+
+  // ---- Carpeta recordada (se elige una vez; el navegador pide confirmar el acceso en cada sesión) ----
+  let carpetaRec = null;
+  function pintarRecordada() {
+    $('asistRecordada').style.display = carpetaRec ? '' : 'none';
+    if (carpetaRec) $('asistRecNombre').textContent = carpetaRec.name;
+  }
+  function recordar(dir) { carpetaRec = dir; try { gtSet('entrada', dir); } catch (e) { } pintarRecordada(); }
+  $('asistBtnReleer').addEventListener('click', async () => {
+    if (!carpetaRec) return;
+    try {
+      const o = { mode: 'read' };
+      if ((await carpetaRec.queryPermission(o)) !== 'granted' && (await carpetaRec.requestPermission(o)) !== 'granted') { aviso('Sin permiso para leer la carpeta.'); return; }
+      const items = []; await listarDirectorio(carpetaRec, carpetaRec.name + '/', items, 0);
+      await leerArchivos(items);
+    } catch (e) { aviso('No se pudo leer la carpeta (¿sigue existiendo?): ' + e.message); }
+  });
+  $('asistBtnOlvidar').addEventListener('click', () => { carpetaRec = null; try { gtSet('entrada', null); } catch (e) { } pintarRecordada(); });
+  try { gtGet('entrada').then(h => { if (h) { carpetaRec = h; pintarRecordada(); } }).catch(() => { }); } catch (e) { }
+
+  // ---- Enlace de SharePoint (solo para abrirlo; leer archivos requiere la carpeta sincronizada) ----
+  const LS_URL = 'asistente_url_v1';
+  const urlEl = $('asistUrl');
+  const urlValida = v => /^https:\/\/[^\s]+$/i.test(String(v).trim());
+  try { urlEl.value = localStorage.getItem(LS_URL) || ''; } catch (e) { }
+  const sincUrl = () => { $('asistBtnAbrirSP').disabled = !urlValida(urlEl.value); try { localStorage.setItem(LS_URL, urlEl.value.trim()); } catch (e) { } };
+  urlEl.addEventListener('input', sincUrl); sincUrl();
+  $('asistBtnAbrirSP').addEventListener('click', () => { if (urlValida(urlEl.value)) window.open(urlEl.value.trim(), '_blank', 'noopener,noreferrer'); });
 
   refrescar();
 })();

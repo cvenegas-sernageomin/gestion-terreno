@@ -1,5 +1,5 @@
 // Service worker offline-first (cache estatico)
-const CACHE='solicitud-camioneta-v20';
+const CACHE='solicitud-camioneta-v21';
 const ASSETS=['./','./index.html','./manifest.json','./icons/icon-192.png','./icons/icon-512.png',
   './vendor/jszip.min.js','./assets/plantilla_solicitud.xlsx','./assets/plantilla_ficha_terreno.xlsx','./assets/plantilla_rendicion_cuentas.xlsx','./assets/plantilla_memo_fondos.docx',
   './vendor/pdf.min.js','./vendor/pdf.worker.min.js','./asistente/texto.js','./asistente/resolucion.js','./asistente/boletas.js','./asistente/mapeo.js','./asistente/ui.js','./informe/index.html','./informe/app.js','./informe/template.js','./informe/jszip.min.js','./informe/icon.svg'];
